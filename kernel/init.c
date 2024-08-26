@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include "limine.h"
+#include "idt.h"
 
 // Set the base revision to 2, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
@@ -18,6 +19,12 @@ static volatile LIMINE_BASE_REVISION(2);
 __attribute__((used, section(".requests")))
 static volatile struct limine_framebuffer_request framebuffer_request = {
     .id = LIMINE_FRAMEBUFFER_REQUEST,
+    .revision = 0
+};
+
+__attribute__((used, section(".requests")))
+static volatile struct limine_memmap_request memmap_request = {
+    .id = LIMINE_MEMMAP_REQUEST,
     .revision = 0
 };
 
@@ -117,6 +124,21 @@ void kmain(void) {
         volatile uint32_t *fb_ptr = framebuffer->address;
         fb_ptr[i * (framebuffer->pitch / 4) + i] = 0xffffff;
     }
+
+    uint64_t usable_memory = 0, unusable_memory = 0;
+    for (uint64_t i = 0; i < memmap_request.response->entry_count; i++) {
+        if (memmap_request.response->entries[i]->type == LIMINE_MEMMAP_USABLE) {
+            usable_memory += memmap_request.response->entries[i]->length;
+        } else {
+            unusable_memory += memmap_request.response->entries[i]->length;
+        }
+    }
+
+    // Setup the interrupt vector 
+    setup_idt();
+
+    // This does not generate a fault! Instead, we will trigger a IRQ
+    __asm__ volatile ("INT 0x80");
 
     // We're done, just hang...
     hcf();

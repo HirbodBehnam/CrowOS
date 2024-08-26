@@ -8,7 +8,7 @@ LD = ld
 AS = as
 
 # Compiler flags for kernel
-KCFLAGS = -Wall \
+CFLAGS = -Wall \
     -Wextra \
     -std=gnu11 \
     -ffreestanding \
@@ -25,7 +25,7 @@ KCFLAGS = -Wall \
     -mno-red-zone \
     -mcmodel=kernel \
     -masm=intel
-KCFLAGS += -ggdb -gdwarf-2 -O0
+CFLAGS += -ggdb -gdwarf-2 -O0
 
 KLDFLAGS = -m elf_x86_64 \
     -nostdlib \
@@ -33,9 +33,9 @@ KLDFLAGS = -m elf_x86_64 \
     -z max-page-size=0x1000
 
 # Kernel compiling
-$K/kernel: $(wildcard $K/*.c) $(wildcard $K/*.s) $K/linker.ld
-	$(CC) -c $(KCFLAGS) $< -o $K/kernel.o
-	$(LD) $(KLDFLAGS) -T $K/linker.ld -o $K/kernel $K/kernel.o
+OBJS=$K/idt.o $K/init.o $K/interrupt.o
+$K/kernel: $(OBJS) $K/linker.ld
+	$(LD) $(KLDFLAGS) -T $K/linker.ld -o $K/kernel $(OBJS) 
 
 # Creating the bootable image
 boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI
@@ -46,19 +46,27 @@ boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI
 	mmd -i boot/disk.img@@1M ::/EFI ::/EFI/BOOT
 	mcopy -i boot/disk.img@@1M $K/kernel ::/
 	mcopy -i boot/disk.img@@1M boot/limine.conf ::/
-	mcopy -i boot/disk.img@@1M boot/limine-bios.sys ::/
 	mcopy -i boot/disk.img@@1M boot/BOOTX64.EFI ::/EFI/BOOT
 
 # Emulation
 QEMU=qemu-system-x86_64
 # Do not add KVM here or you are unable to debug the OS
-QEMUOPT = -m 2G -bios /usr/share/ovmf/OVMF.fd -hda boot/disk.img
+QEMUOPT = -m 256M -bios /usr/share/ovmf/OVMF.fd -hda boot/disk.img -monitor stdio
 
 .PHONY: qemu
 qemu: boot/disk.img
 	$(QEMU) $(QEMUOPT)
 
+.PHONY: qemu-kvm
+qemu-kvm: boot/disk.img
+	$(QEMU) -enable-kvm -cpu host $(QEMUOPT)
+
 .PHONY: qemu-gdb
 qemu-gdb: boot/disk.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
 	$(QEMU) $(QEMUOPT) -s -S
+
+.PHONY: clean
+clean:
+	rm kernel/*.o kernel/kernel
+	rm boot/disk.img
