@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include "limine.h"
 #include "idt.h"
+#include "serial_port.h"
 
 // Set the base revision to 2, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
@@ -134,11 +135,13 @@ void kmain(void) {
         }
     }
 
+    // Setup serial port for console logs
+    if (init_serial() != 0)
+        hcf(); // well shit...
+    print_string("Serial port initialized!\n");
+
     // Setup the interrupt vector 
     setup_idt();
-
-    // This does not generate a fault! Instead, we will trigger a IRQ
-    __asm__ volatile ("INT 0x80");
 
     // We're done, just hang...
     hcf();
