@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include "limine.h"
+#include "pic.h"
 #include "idt.h"
 #include "serial_port.h"
 
@@ -20,14 +21,22 @@ static volatile LIMINE_BASE_REVISION(2);
 __attribute__((used, section(".requests")))
 static volatile struct limine_framebuffer_request framebuffer_request = {
     .id = LIMINE_FRAMEBUFFER_REQUEST,
-    .revision = 0
+    .revision = 0,
 };
 
 __attribute__((used, section(".requests")))
 static volatile struct limine_memmap_request memmap_request = {
     .id = LIMINE_MEMMAP_REQUEST,
-    .revision = 0
+    .revision = 0,
 };
+
+__attribute__((used, section(".requests")))
+static volatile struct limine_smp_request smp_request = {
+    .id = LIMINE_SMP_REQUEST,
+    .revision = 0,
+    .flags = 0,
+};
+
 
 // Finally, define the start and end markers for the Limine requests.
 // These can also be moved anywhere, to any .c file, as seen fit.
@@ -111,6 +120,11 @@ void kmain(void) {
         hcf();
     }
 
+    // Just stop other cores (for now)
+    if (smp_request.response->bsp_lapic_id != 0) {
+        hcf();
+    }
+
     // Ensure we got a framebuffer.
     if (framebuffer_request.response == NULL
      || framebuffer_request.response->framebuffer_count < 1) {
@@ -139,6 +153,10 @@ void kmain(void) {
     if (init_serial() != 0)
         hcf(); // well shit...
     print_string("Serial port initialized!\n");
+    
+    // Setup PIC to get interrupts
+    picinit();
+    //ioapicinit();
 
     // Setup the interrupt vector 
     setup_idt();

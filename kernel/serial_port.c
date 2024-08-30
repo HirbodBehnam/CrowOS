@@ -51,3 +51,13 @@ void print_string(const char *str) {
     for (; (*str) != '\0'; str++)
         write_serial(*str);
 }
+
+static int serial_received() {
+   return inb(PORT + 5) & 1;
+}
+
+char read_serial() {
+   while (serial_received() == 0);
+
+   return inb(PORT);
+}

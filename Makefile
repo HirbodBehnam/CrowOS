@@ -33,7 +33,7 @@ KLDFLAGS = -m elf_x86_64 \
     -z max-page-size=0x1000
 
 # Kernel compiling
-OBJS=$K/init.o $K/idt.o $K/interrupt.o $K/serial_port.o
+OBJS=$K/init.o $K/idt.o $K/interrupt.o $K/serial_port.o $K/pic.o
 $K/kernel: $(OBJS) $K/linker.ld
 	$(LD) $(KLDFLAGS) -T $K/linker.ld -o $K/kernel $(OBJS) 
 
@@ -51,7 +51,7 @@ boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI
 # Emulation
 QEMU=qemu-system-x86_64
 # Do not add KVM here or you are unable to debug the OS
-QEMUOPT = -m 256M -bios /usr/share/ovmf/OVMF.fd -hda boot/disk.img -serial stdio
+QEMUOPT = -smp 1 -m 256M -bios /usr/share/ovmf/OVMF.fd -hda boot/disk.img -serial stdio # -monitor stdio
 
 .PHONY: qemu
 qemu: boot/disk.img
