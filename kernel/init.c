@@ -11,7 +11,7 @@
 // See specification for further info.
 
 __attribute__((used, section(".requests")))
-static volatile LIMINE_BASE_REVISION(2);
+static volatile LIMINE_BASE_REVISION(0);
 
 // The Limine requests can be placed anywhere, but it is important that
 // the compiler does not optimise them away, so, usually, they should
@@ -149,18 +149,17 @@ void kmain(void) {
         }
     }
 
-    // Setup serial port for console logs
-    if (init_serial() != 0)
-        hcf(); // well shit...
-    print_string("Serial port initialized!\n");
-    
     // Setup PIC to get interrupts
     picinit();
-    //ioapicinit();
+    lapicinit();
+    ioapicinit();
 
     // Setup the interrupt vector 
     setup_idt();
 
+    if (init_serial() != 0)
+        hcf(); // well shit...
+    print_string("Bomb\n");
     // We're done, just hang...
     hcf();
 }

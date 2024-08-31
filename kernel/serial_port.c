@@ -1,6 +1,8 @@
 // Mostly from https://wiki.osdev.org/Serial_Ports
 #include "serial_port.h"
 #include "asm.h"
+#include "traps.h"
+#include "pic.h"
 
 #define PORT 0x3f8 // COM1
 
@@ -10,25 +12,30 @@
  * TODO: setup the serial port in a way that we can receive text and input.
  */
 int init_serial(void) {
-   outb(PORT + 1, 0x00);    // Disable all interrupts
-   outb(PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
-   outb(PORT + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud
-   outb(PORT + 1, 0x00);    //                  (hi byte)
-   outb(PORT + 3, 0x03);    // 8 bits, no parity, one stop bit
-   outb(PORT + 2, 0xC7);    // Enable FIFO, clear them, with 14-byte threshold
-   outb(PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
-   outb(PORT + 4, 0x1E);    // Set in loopback mode, test the serial chip
-   outb(PORT + 0, 0xAE);    // Test serial chip (send byte 0xAE and check if serial returns same byte)
+   char *p;
 
-   // Check if serial is faulty (i.e: not same byte as sent)
-   if(inb(PORT + 0) != 0xAE) {
-      return 1;
-   }
+  // Turn off the FIFO
+  outb(PORT+2, 0);
 
-   // If serial is not faulty set it in normal operation mode
-   // (not-loopback with IRQs enabled and OUT#1 and OUT#2 bits enabled)
-   outb(PORT + 4, 0x0F);
-   return 0;
+  // 9600 baud, 8 data bits, 1 stop bit, parity off.
+  outb(PORT+3, 0x80);    // Unlock divisor
+  outb(PORT+0, 115200/9600);
+  outb(PORT+1, 0);
+  outb(PORT+3, 0x03);    // Lock divisor, 8 data bits.
+  outb(PORT+4, 0);
+  outb(PORT+1, 0x01);    // Enable receive interrupts.
+
+  // If status is 0xFF, no serial port.
+  if(inb(PORT+5) == 0xFF)
+    return 1;
+
+  // Acknowledge pre-existing interrupt conditions;
+  // enable interrupts.
+  inb(PORT+2);
+  inb(PORT+0);
+  ioapicenable(IRQ_COM1, 0);
+
+  return 0;
 }
 
 static int is_transmit_empty() {
@@ -60,4 +67,12 @@ char read_serial() {
    while (serial_received() == 0);
 
    return inb(PORT);
+}
+
+void echo_back_char(void) {
+   char c = read_serial();
+   if (c >= 'a' && c <= 'z')
+      c += 'A' - 'a';
+   write_serial(c);
+   send_eoi();
 }
