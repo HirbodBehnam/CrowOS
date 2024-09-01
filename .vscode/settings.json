@@ -1,0 +1,7 @@
+{
+    "C_Cpp.clang_format_fallbackStyle": "LLVM",
+    "files.associations": {
+        "stddef.h": "c",
+        "pic.h": "c"
+    }
+}

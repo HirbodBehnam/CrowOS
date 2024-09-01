@@ -1,5 +1,6 @@
-int init_serial(void);
-void write_serial(char a);
-void print_string(const char *str);
-char read_serial();
-void echo_back_char(void);
+int serial_init(void);
+void serial_init_interrupt(void);
+void serial_putc(char a);
+void serial_puts(const char *str);
+char serial_getc();
+void serial_echo_back_char(void);

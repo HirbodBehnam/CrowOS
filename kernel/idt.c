@@ -40,13 +40,16 @@ void idt_set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
 
     descriptor->isr_low        = (uint64_t)isr & 0xFFFF;
     descriptor->kernel_cs      = LIMINE_CODE_GDT_AMD64;
-    descriptor->ist            = 0;
+    descriptor->ist            = 0; // we do not put a seperate stack for each interrupt
     descriptor->attributes     = flags;
     descriptor->isr_mid        = ((uint64_t)isr >> 16) & 0xFFFF;
     descriptor->isr_high       = ((uint64_t)isr >> 32) & 0xFFFFFFFF;
     descriptor->reserved       = 0;
 }
 
+/**
+ * Setup IDT will load the IDT register with the addresses of interrupt functions
+ */
 void setup_idt(void) {
     idtr.base = (uintptr_t)&idt[0];
     idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_MAX_DESCRIPTORS - 1;
