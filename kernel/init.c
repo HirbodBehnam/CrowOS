@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include "limine.h"
 #include "asm.h"
+#include "gdt.h"
 #include "pic.h"
 #include "idt.h"
 #include "serial_port.h"
@@ -48,6 +49,9 @@ void kmain(void) {
         volatile uint32_t *fb_ptr = framebuffer->address;
         fb_ptr[i * (framebuffer->pitch / 4) + i] = 0xffffff;
     }
+
+    // Setup new GDT
+    gdt_init();
 
     // Initialize serial port
     if (serial_init() != 0)
