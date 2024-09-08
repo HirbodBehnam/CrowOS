@@ -35,9 +35,9 @@ static volatile LIMINE_REQUESTS_START_MARKER;
 __attribute__((used, section(".requests_end_marker")))
 static volatile LIMINE_REQUESTS_END_MARKER;
 
+extern void jump_to_ring3(void);
+
 // The following will be our kernel's entry point.
-// If renaming kmain() to something else, make sure to change the
-// linker script accordingly.
 void kmain(void) {
     // Ensure the bootloader actually understands our base revision (see spec).
     if (LIMINE_BASE_REVISION_SUPPORTED == false)
@@ -68,6 +68,10 @@ void kmain(void) {
     // Setup the interrupt vector 
     setup_idt();
     serial_puts("IDT initialized\n");
+
+    // Userspace?
+    jump_to_ring3();
+    serial_puts("Ring 3 exited\n");
     
     // We're done, just hang...
     halt();

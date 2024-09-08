@@ -33,7 +33,7 @@ KLDFLAGS = -m elf_x86_64 \
     -z max-page-size=0x1000
 
 # Kernel compiling
-OBJS=$K/init.o $K/snippet.o $K/gdt.o $K/idt.o $K/interrupt.o $K/serial_port.o $K/pic.o
+OBJS=$K/init.o $K/snippet.o $K/gdt.o $K/idt.o $K/interrupt.o $K/serial_port.o $K/pic.o $K/ring3.o
 $K/kernel: $(OBJS) $K/linker.ld
 	$(LD) $(KLDFLAGS) -T $K/linker.ld -o $K/kernel $(OBJS) 
 
