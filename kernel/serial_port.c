@@ -62,14 +62,6 @@ void serial_putc(char a) {
 }
 
 /**
- * Writes a string in the serial port.
- */
-void serial_puts(const char *str) {
-  for (; (*str) != '\0'; str++)
-    serial_putc(*str);
-}
-
-/**
  * Checks if there is anything in the serial port to receive.
  * This will check the first bit of the Line Status Register which is
  * "Data ready (DR)" that is "Set if there is data that can be read"

@@ -26,7 +26,7 @@ static inline void msr_get(uint32_t msr, uint32_t *lo, uint32_t *hi) {
 static inline void wait_for_interrupt(void) { __asm__ volatile("hlt"); }
 
 // Halt the processor forever
-static inline void halt(void) {
+__attribute__ ((noreturn)) static inline void halt(void) {
   for (;;)
     __asm__ volatile("hlt");
 }

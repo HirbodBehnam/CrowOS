@@ -1,19 +1,7 @@
 #include "pic.h"
 #include "asm.h"
+#include "mem.h"
 #include "traps.h"
-
-// I/O Addresses of the old PICs
-#define IO_PIC1 0x20 // Master (IRQs 0-7)
-#define IO_PIC2 0xA0 // Slave (IRQs 8-15)
-
-/**
- * Don't use the 8259A interrupt controllers, instead we'll use APIC.
- * Thus, mask all interrupts.
- */
-void pic_disable(void) {
-  outb(IO_PIC1 + 1, 0xFF);
-  outb(IO_PIC2 + 1, 0xFF);
-}
 
 #define IOAPIC 0xFEC00000 // Default physical address of IO APIC
 
@@ -63,7 +51,7 @@ static void ioapic_write(int reg, uint32_t data) {
  * Initialize the IO APIC by getting it and masking every interrupt.
  */
 void ioapic_init(void) {
-  ioapic = (volatile struct ioapic *)IOAPIC;
+  ioapic = (volatile struct ioapic *)p2v((void *)IOAPIC);
   int maxintr = (ioapic_read(REG_VER) >> 16) & 0xFF;
 
   // Mark all interrupts edge-triggered, active high, disabled,
@@ -121,7 +109,7 @@ void ioapic_enable(int irq, int cpunum) {
 /**
  * The address of the local APIC. Because we are not supporting SMP,
  * we can simply use a global variable for local APIC.
- * 
+ *
  * Also, it's very important to note that this must be uint32_t pointer
  * and writes must be 32 bits wide or else, this won't work.
  */
@@ -148,7 +136,9 @@ static uintptr_t cpu_get_apic_base(void) {
  * Initialize the local APIC by just getting the address of it
  * and storing it in a global variable.
  */
-void lapic_init(void) { lapic = (volatile uint32_t *) cpu_get_apic_base(); }
+void lapic_init(void) {
+  lapic = (volatile uint32_t *)p2v((void *)cpu_get_apic_base());
+}
 
 /**
  * Send an end of interrupt signal to local APIC

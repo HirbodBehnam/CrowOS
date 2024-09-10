@@ -1,78 +1,95 @@
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
-#include "limine.h"
 #include "asm.h"
 #include "gdt.h"
-#include "pic.h"
 #include "idt.h"
+#include "limine.h"
+#include "mem.h"
+#include "pic.h"
+#include "printf.h"
 #include "serial_port.h"
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
-// We use base revision 0 to have the lower 4 GB of memory mapped 1:1
-// in the virtual page table
-__attribute__((used, section(".requests")))
-static volatile LIMINE_BASE_REVISION(0);
+__attribute__((used,
+               section(".requests"))) static volatile LIMINE_BASE_REVISION(2);
 
 // Requst framebuffer to draw stuff on screen
-__attribute__((used, section(".requests")))
-static volatile struct limine_framebuffer_request framebuffer_request = {
-    .id = LIMINE_FRAMEBUFFER_REQUEST,
-    .revision = 0,
+__attribute__((
+    used,
+    section(".requests"))) static volatile struct limine_framebuffer_request
+    framebuffer_request = {
+        .id = LIMINE_FRAMEBUFFER_REQUEST,
+        .revision = 0,
 };
 
 // Get the mapping of the memory to allocate free space for programs
-__attribute__((used, section(".requests")))
-static volatile struct limine_memmap_request memmap_request = {
-    .id = LIMINE_MEMMAP_REQUEST,
-    .revision = 0,
+__attribute__((
+    used, section(".requests"))) static volatile struct limine_memmap_request
+    memmap_request = {
+        .id = LIMINE_MEMMAP_REQUEST,
+        .revision = 0,
+};
+
+// Have a 1:1 map of physical memory on a high address
+__attribute__((used,
+               section(".requests"))) static volatile struct limine_hhdm_request
+    hhdm_request = {
+        .id = LIMINE_HHDM_REQUEST,
+        .revision = 0,
 };
 
 // Finally, define the start and end markers for the Limine requests.
 // These can also be moved anywhere, to any .c file, as seen fit.
-__attribute__((used, section(".requests_start_marker")))
-static volatile LIMINE_REQUESTS_START_MARKER;
+__attribute__((used,
+               section(".requests_start_"
+                       "marker"))) static volatile LIMINE_REQUESTS_START_MARKER;
 
-__attribute__((used, section(".requests_end_marker")))
-static volatile LIMINE_REQUESTS_END_MARKER;
+__attribute__((
+    used,
+    section(
+        ".requests_end_marker"))) static volatile LIMINE_REQUESTS_END_MARKER;
 
 extern void jump_to_ring3(void);
 
 // The following will be our kernel's entry point.
 void kmain(void) {
-    // Ensure the bootloader actually understands our base revision (see spec).
-    if (LIMINE_BASE_REVISION_SUPPORTED == false)
-        halt();
-
-    // Draw a line from Limine example
-    struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
-    for (size_t i = 0; i < 100; i++) {
-        volatile uint32_t *fb_ptr = framebuffer->address;
-        fb_ptr[i * (framebuffer->pitch / 4) + i] = 0xffffff;
-    }
-
-    // Setup new GDT
-    gdt_init();
-
-    // Initialize serial port
-    if (serial_init() != 0)
-        halt(); // well shit...
-    serial_puts("Serial port initialized\n");
-
-    // Setup PIC to get interrupts
-    pic_disable();
-    lapic_init();
-    ioapic_init();
-    serial_init_interrupt();
-    serial_puts("APIC initialized\n");
-
-    // Setup the interrupt vector 
-    setup_idt();
-    serial_puts("IDT initialized\n");
-
-    // Userspace?
-    jump_to_ring3();
-    serial_puts("Ring 3 exited\n");
-    
-    // We're done, just hang...
+  // Ensure the bootloader actually understands our base revision (see spec).
+  if (LIMINE_BASE_REVISION_SUPPORTED == false)
     halt();
+
+  // Draw a line from Limine example
+  struct limine_framebuffer *framebuffer =
+      framebuffer_request.response->framebuffers[0];
+  for (size_t i = 0; i < 100; i++) {
+    volatile uint32_t *fb_ptr = framebuffer->address;
+    fb_ptr[i * (framebuffer->pitch / 4) + i] = 0xffffff;
+  }
+
+  // Setup new GDT
+  gdt_init();
+
+  // Initialize serial port
+  if (serial_init() != 0)
+    halt(); // well shit...
+  kprintf("Serial port initialized\n");
+
+  // Initialize memory
+  init_mem(hhdm_request.response->offset, memmap_request.response);
+
+  // Setup PIC to get interrupts. PIC is disabled via Limine spec
+  lapic_init();
+  ioapic_init();
+  serial_init_interrupt();
+  kprintf("APIC initialized\n");
+
+  // Setup the interrupt vector
+  setup_idt();
+  kprintf("IDT initialized\n");
+
+  // Userspace?
+  // jump_to_ring3();
+  kprintf("Ring 3 exited\n");
+
+  // We're done, just hang...
+  halt();
 }
