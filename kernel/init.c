@@ -1,6 +1,7 @@
 #include "asm.h"
 #include "gdt.h"
 #include "idt.h"
+#include "lib.h"
 #include "limine.h"
 #include "mem.h"
 #include "pic.h"
@@ -50,7 +51,7 @@ __attribute__((
     section(
         ".requests_end_marker"))) static volatile LIMINE_REQUESTS_END_MARKER;
 
-extern void jump_to_ring3(void);
+void test_ring3(void);
 
 // The following will be our kernel's entry point.
 void kmain(void) {
@@ -88,9 +89,24 @@ void kmain(void) {
   kprintf("IDT initialized\n");
 
   // Userspace?
-  // jump_to_ring3();
+  test_ring3();
   kprintf("Ring 3 exited\n");
 
   // We're done, just hang...
   halt();
+}
+
+extern void jump_to_ring3(uint64_t program_start, uint64_t stack_virtual_address);
+extern void ring3_halt();
+
+void test_ring3(void) {
+  // Create a page table
+  const uint64_t program_start_address = 0x1000000, stack_address = 0x2000000;
+  void *stack = kalloc(), *code = kalloc();
+  pagetable_t pagetable = vmm_create_pagetable();
+  vmm_map_pages(pagetable, program_start_address, PAGE_SIZE, V2P(code), (pte_permissions){.writable = 0, .executable = 1, .userspace = 1});
+  vmm_map_pages(pagetable, stack_address, PAGE_SIZE, V2P(stack), (pte_permissions){.writable = 1, .executable = 0, .userspace = 1});
+  // Fill code segment
+  memcpy(code, ring3_halt, PAGE_SIZE);
+  // TODO: jump tp trampoline to switch to userspace
 }

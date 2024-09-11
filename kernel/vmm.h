@@ -14,14 +14,14 @@
 /**
  * Some set of PTE permissions
  */
-struct pte_permissions {
+typedef struct {
   // If 1, we can write to this page
   uint8_t writable : 1;
   // If 1, we can execute this page
   uint8_t executable : 1;
   // If 1, this is a userspace page
   uint8_t userspace : 1;
-};
+} pte_permissions;
 
 
 /**
@@ -70,3 +70,7 @@ _Static_assert(sizeof(struct pte_t) == 8, "Each PTE must be 8 bytes");
  * Each pagetable contains multiple (or 512 to be exact) PTEs
  */
 typedef struct pte_t *pagetable_t;
+
+int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
+                  uint64_t pa, pte_permissions permissions);
+pagetable_t vmm_create_pagetable(void);

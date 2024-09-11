@@ -67,7 +67,7 @@ struct pte_t *walk(pagetable_t pagetable, uint64_t va, bool alloc) {
  * success, -1 if walk() couldn't allocate a needed page-table page.
  */
 int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
-                  uint64_t pa, struct pte_permissions permissions) {
+                  uint64_t pa, pte_permissions permissions) {
   // Sanity checks
   if (va % PAGE_SIZE != 0)
     panic("vmm_map_pages: va not aligned");
@@ -92,4 +92,14 @@ int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
     pte->address = PTE_GET_PHY_ADDRESS(current_pa);
   }
   return 0;
+}
+
+// create an empty user page table.
+// returns 0 if out of memory.
+pagetable_t vmm_create_pagetable(void) {
+  pagetable_t pagetable = (pagetable_t)kalloc();
+  if (pagetable == NULL)
+    return NULL;
+  memset(pagetable, 0, PAGE_SIZE);
+  return pagetable;
 }

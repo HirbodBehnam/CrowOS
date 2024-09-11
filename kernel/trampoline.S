@@ -1,0 +1,3 @@
+.section trampsec
+trampoline:
+    ret

@@ -30,3 +30,10 @@ __attribute__ ((noreturn)) static inline void halt(void) {
   for (;;)
     __asm__ volatile("hlt");
 }
+
+/**
+ * Install a new pagetable by changing the CR3 value. Address must be divisable 
+ */
+static inline void install_pagetable(uint64_t pagetable_address) {
+  __asm__ volatile("mov cr3, rax" : : "a"(pagetable_address & 0xFFFFFFFFFFFFF000ULL));
+}
