@@ -6,6 +6,7 @@
 #include "pic.h"
 #include "printf.h"
 #include "serial_port.h"
+#include "vmm.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>

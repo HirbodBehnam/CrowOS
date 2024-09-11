@@ -3,14 +3,9 @@
 #include "printf.h"
 
 /**
- * Default page size of Intel CPUs
- */
-#define PAGE_SIZE 4096
-
-/**
  * The HHDM offset with current Limine works with
  */
-static uint64_t hhdm_offset;
+volatile uint64_t hhdm_offset;
 
 /**
  * Represents a free page which is linked to next page
@@ -45,7 +40,7 @@ void init_mem(uint64_t hhdm_offset_local,
       uint64_t current_page = entry->base;
       for (uint64_t page_number = 0; page_number < free_page_count;
            page_number++, current_page += PAGE_SIZE) {
-        kfree(p2v((void *)current_page));
+        kfree((void *)P2V(current_page));
         total_free_pages++;
       }
     }
@@ -55,22 +50,11 @@ void init_mem(uint64_t hhdm_offset_local,
 }
 
 /**
- * Convert physical memory to virtual address of kernel space based on HHDM
- * offset
- */
-void *p2v(void *ptr) { return ptr + hhdm_offset; }
-/**
- * Convert virtual memory to physical address of kernel space based on HHDM
- * offset
- */
-void *v2p(void *ptr) { return ptr - hhdm_offset; }
-
-/**
  * Free a memory got by kalloc
  */
 void kfree(void *page) {
   // Some sanity checks
-  const uint64_t physical_address = (uint64_t)v2p(page);
+  const uint64_t physical_address = V2P((uint64_t)page);
   if (physical_address % PAGE_SIZE != 0)
     panic("kfree");
   // Fill with junk to catch dangling refs.
@@ -79,4 +63,18 @@ void kfree(void *page) {
   struct freepage_t *current_page = (struct freepage_t *)page;
   current_page->next = freepages;
   freepages = current_page;
+}
+
+/**
+ * Allocate one page for kernel. Returns the virtual address of this page.
+ * Will return NULL if we are out of space.
+ */
+void *kalloc(void) {
+  // Are we OOM?
+  if (freepages == NULL)
+    return NULL;
+  // Allocate one page
+  void *page = freepages;
+  freepages = freepages->next;
+  return page;
 }

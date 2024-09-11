@@ -51,7 +51,7 @@ static void ioapic_write(int reg, uint32_t data) {
  * Initialize the IO APIC by getting it and masking every interrupt.
  */
 void ioapic_init(void) {
-  ioapic = (volatile struct ioapic *)p2v((void *)IOAPIC);
+  ioapic = (volatile struct ioapic *)P2V(IOAPIC);
   int maxintr = (ioapic_read(REG_VER) >> 16) & 0xFF;
 
   // Mark all interrupts edge-triggered, active high, disabled,
@@ -137,7 +137,7 @@ static uintptr_t cpu_get_apic_base(void) {
  * and storing it in a global variable.
  */
 void lapic_init(void) {
-  lapic = (volatile uint32_t *)p2v((void *)cpu_get_apic_base());
+  lapic = (volatile uint32_t *)P2V(cpu_get_apic_base());
 }
 
 /**
