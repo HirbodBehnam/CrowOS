@@ -1,6 +1,6 @@
 #include "vmm.h"
+#include "asm.h"
 #include "lib.h"
-#include "mem.h"
 #include "printf.h"
 
 /**
@@ -46,15 +46,14 @@ struct pte_t *walk(pagetable_t pagetable, uint64_t va, bool alloc) {
   for (int level = 3; level > 0; level--) {
     struct pte_t *pte = &pagetable[PTE_INDEX_FROM_VA(va, level)];
     if (pte->present) { // if PTE is here, just point to it
-      pagetable = P2V(pte_follow(*pte));
+      pagetable = (pagetable_t)P2V(pte_follow(*pte));
     } else { // PTE does not exists...
       if (!alloc ||
           (pagetable = (pagetable_t)kalloc()) == 0) // should we make one?
         return 0;                                   // either OOM or N/A page
       memset(pagetable, 0, PAGE_SIZE);              // zero the new pagetable
       pte->present = 1;                             // now we have this page
-      pte->address =
-          PTE_GET_PHY_ADDRESS((uint64_t)V2P(pagetable)); // set the address
+      pte->address = PTE_GET_PHY_ADDRESS(V2P(pagetable)); // set the address
     }
   }
 
@@ -92,6 +91,23 @@ int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
     pte->address = PTE_GET_PHY_ADDRESS(current_pa);
   }
   return 0;
+}
+
+// Defined in trampoline.S
+extern void trampoline(void);
+
+/**
+ * In kernel, we only need to add the trampoline page to the very top of the
+ * virtual address to sync with userspace.
+ */
+void vmm_init_kernel(void) {
+  // Create a trampoline page which is not in the kernel space.
+  // Because we do not know the physical address of loaded kernel.
+  void* trampoline_page = kalloc();
+  memcpy(trampoline_page, trampoline, PAGE_SIZE);
+  // Add the trampoline to kernel address space
+  pagetable_t pagetable = (pagetable_t)P2V(get_installed_pagetable());
+  vmm_map_pages(pagetable, TRAMPOLINE_VIRTUAL_ADDRESS, PAGE_SIZE, V2P(trampoline_page), (pte_permissions){.writable = 0, .executable = 1, .userspace = 0});
 }
 
 // create an empty user page table.

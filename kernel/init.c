@@ -77,6 +77,8 @@ void kmain(void) {
 
   // Initialize memory
   init_mem(hhdm_request.response->offset, memmap_request.response);
+  vmm_init_kernel();
+  kprintf("Kernel memory layout changed\n");
 
   // Setup PIC to get interrupts. PIC is disabled via Limine spec
   lapic_init();
@@ -98,15 +100,18 @@ void kmain(void) {
 
 extern void jump_to_ring3(uint64_t program_start, uint64_t stack_virtual_address);
 extern void ring3_halt();
+extern void trampoline();
 
 void test_ring3(void) {
   // Create a page table
-  const uint64_t program_start_address = 0x1000000, stack_address = 0x2000000;
-  void *stack = kalloc(), *code = kalloc();
+  void *stack = kalloc(), *trapframe = kalloc(), *trampoline_frame = kalloc(), *code = kalloc();
   pagetable_t pagetable = vmm_create_pagetable();
-  vmm_map_pages(pagetable, program_start_address, PAGE_SIZE, V2P(code), (pte_permissions){.writable = 0, .executable = 1, .userspace = 1});
-  vmm_map_pages(pagetable, stack_address, PAGE_SIZE, V2P(stack), (pte_permissions){.writable = 1, .executable = 0, .userspace = 1});
-  // Fill code segment
+  vmm_map_pages(pagetable, USER_CODE_START, PAGE_SIZE, V2P(code), (pte_permissions){.writable = 0, .executable = 1, .userspace = 1});
+  vmm_map_pages(pagetable, USER_STACK_TOP & 0xFFFFFFFFFFFFF000, PAGE_SIZE, V2P(stack), (pte_permissions){.writable = 1, .executable = 0, .userspace = 1});
+  vmm_map_pages(pagetable, TRAMPOLINE_VIRTUAL_ADDRESS, PAGE_SIZE, V2P(trampoline_frame), (pte_permissions){.writable = 0, .executable = 1, .userspace = 0});
+  vmm_map_pages(pagetable, TRAPFRAME_VIRTUAL_ADDRESS, PAGE_SIZE, V2P(trapframe), (pte_permissions){.writable = 1, .executable = 0, .userspace = 0});
+  // Fill code and trampoline
+  memcpy(trampoline_frame, trampoline, PAGE_SIZE);
   memcpy(code, ring3_halt, PAGE_SIZE);
   // TODO: jump tp trampoline to switch to userspace
 }

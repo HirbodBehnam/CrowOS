@@ -1,15 +1,41 @@
+#include "mem.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 /**
- * Max virtual address of a memory in a process
+ * Max virtual address of a memory in a process. This is not The max actual
+ * virtual address because Limine puts its stuff in there. So we go a little bit
+ * lower because we need to mutally map trampoline to kernel and userspace.
  */
-#define VA_MAX (1ULL << 47)
+#define VA_MAX (1ULL << 46)
 /**
  * Min virutal address of a memory in a process (2MB)
  */
 #define VA_MIN (1ULL << 21)
+
+/**
+ * Where in the virtual memory we put the code of program in.
+ * For now, this is the lowest possible virtual address.
+ */
+#define USER_CODE_START (VA_MIN)
+
+/**
+ * Where we should put the top of the stack in the virtual address space
+ */
+#define USER_STACK_TOP ((1ULL << 31) - 1)
+
+/**
+ * Where should we put the trampoline in userspace and kernel space.
+ * Trampoline must be one page.
+ */
+#define TRAMPOLINE_VIRTUAL_ADDRESS ((VA_MAX) - (PAGE_SIZE))
+
+/**
+ * Trapframe virtual address. Used in userspace only. Trapframe must be
+ * one page only.
+ */
+#define TRAPFRAME_VIRTUAL_ADDRESS ((VA_MAX) - 2 * (PAGE_SIZE))
 
 /**
  * Some set of PTE permissions
@@ -22,7 +48,6 @@ typedef struct {
   // If 1, this is a userspace page
   uint8_t userspace : 1;
 } pte_permissions;
-
 
 /**
  * Each page table in Intel CPU is like this. Based on
@@ -71,6 +96,7 @@ _Static_assert(sizeof(struct pte_t) == 8, "Each PTE must be 8 bytes");
  */
 typedef struct pte_t *pagetable_t;
 
+void vmm_init_kernel(void);
 int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
                   uint64_t pa, pte_permissions permissions);
 pagetable_t vmm_create_pagetable(void);

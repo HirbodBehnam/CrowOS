@@ -32,8 +32,18 @@ __attribute__ ((noreturn)) static inline void halt(void) {
 }
 
 /**
- * Install a new pagetable by changing the CR3 value. Address must be divisable 
+ * Install a new pagetable by changing the CR3 value. Address must be divisable
+ * by pagesize. The address must be physical.
  */
 static inline void install_pagetable(uint64_t pagetable_address) {
   __asm__ volatile("mov cr3, rax" : : "a"(pagetable_address & 0xFFFFFFFFFFFFF000ULL));
+}
+
+/**
+ * Gets the physical address of installed current page table.
+ */
+static inline uint64_t get_installed_pagetable() {
+  uint64_t cr3;
+  __asm__ volatile("mov rax, cr3" : "=a"(cr3));
+  return cr3 & 0xFFFFFFFFFFFFF000ULL;
 }

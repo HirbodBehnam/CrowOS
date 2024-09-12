@@ -54,7 +54,7 @@ void init_mem(uint64_t hhdm_offset_local,
  */
 void kfree(void *page) {
   // Some sanity checks
-  const uint64_t physical_address = V2P((uint64_t)page);
+  const uint64_t physical_address = V2P(page);
   if (physical_address % PAGE_SIZE != 0)
     panic("kfree");
   // Fill with junk to catch dangling refs.

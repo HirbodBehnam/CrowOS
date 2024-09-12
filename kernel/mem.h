@@ -16,13 +16,13 @@ extern volatile uint64_t hhdm_offset;
  * Convert virtual memory to physical address of kernel space based on HHDM
  * offset
  */
-#define V2P(ptr) ((ptr) - (hhdm_offset))
+#define V2P(ptr) ((uint64_t)(ptr) - (hhdm_offset))
 
 /**
  * Convert physical memory to virtual address of kernel space based on HHDM
  * offset
  */
-#define P2V(ptr) ((ptr) + (hhdm_offset))
+#define P2V(ptr) ((uint64_t)(ptr) + (hhdm_offset))
 
 void init_mem(uint64_t hhdm_offset,
               const struct limine_memmap_response *memory_map);
