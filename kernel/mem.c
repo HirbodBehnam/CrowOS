@@ -58,7 +58,7 @@ void kfree(void *page) {
   if (physical_address % PAGE_SIZE != 0)
     panic("kfree");
   // Fill with junk to catch dangling refs.
-  memset(page, 1, PAGE_SIZE);
+  //memset(page, 1, PAGE_SIZE);
   // In this page, we only store the reference to next page
   struct freepage_t *current_page = (struct freepage_t *)page;
   current_page->next = freepages;

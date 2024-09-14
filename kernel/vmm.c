@@ -16,6 +16,11 @@
 #define PTE_GET_PHY_ADDRESS(addr) ((addr) >> 12)
 
 /**
+ * Number of PTEs in a pagetable
+ */
+#define PAGETABLE_PTE_COUNT 512
+
+/**
  * Follow a PTE to the pagetable/frame it is pointing to.
  * Note that this returns the physical address and later should be converted
  * to virtual address.
@@ -23,6 +28,12 @@
 static inline pagetable_t pte_follow(struct pte_t pte) {
   return (pagetable_t)((uint64_t)pte.address << 12);
 }
+
+/**
+ * The kernel pagetable which Limine sets up for us. This is in virtual
+ * address space.
+ */
+static pagetable_t kernel_pagetable;
 
 /**
  * Return the address of the PTE in page table pagetable that corresponds to
@@ -39,7 +50,7 @@ static inline pagetable_t pte_follow(struct pte_t pte) {
  *   12..20 -- 9 bits of level-1 index.
  *    0..11 -- 12 bits of byte offset within the page.
  */
-struct pte_t *walk(pagetable_t pagetable, uint64_t va, bool alloc) {
+static struct pte_t *walk(pagetable_t pagetable, uint64_t va, bool alloc) {
   if (va >= VA_MAX || va < VA_MIN)
     panic("walk");
 
@@ -53,11 +64,69 @@ struct pte_t *walk(pagetable_t pagetable, uint64_t va, bool alloc) {
         return 0;                                   // either OOM or N/A page
       memset(pagetable, 0, PAGE_SIZE);              // zero the new pagetable
       pte->present = 1;                             // now we have this page
+      // Just like xv6, we do some generous access bits on every page allocated.
+      // The last PTE will take care of the actual access bits.
+      pte->xd = 0;
+      pte->rw = 1;
+      pte->us = 1;
       pte->address = PTE_GET_PHY_ADDRESS(V2P(pagetable)); // set the address
     }
   }
 
   return &pagetable[PTE_INDEX_FROM_VA(va, 0)];
+}
+
+/**
+ * Deep copy the pagetable (and not the frames) to another pagetable.
+ *
+ * TODO: I know that if we goto OOM state we won't free the frames used by
+ * pagetables.
+ */
+static int copy_pagetable(pagetable_t dst, const pagetable_t src, int level) {
+  // The first step is to copy the pagetable from src to dest (the PTEs)
+  memcpy(dst, src, PAGE_SIZE);
+  // Next check if this is the leaf (points to 4kb page)
+  if (level == 0)
+    return 0;
+  // Now check each entry in pagetable
+  for (size_t i = 0; i < PAGETABLE_PTE_COUNT; i++) {
+    const struct pte_t pte_src = src[i];
+    if (pte_src.present && !pte_src.huge_page) {
+      // If this PTE is not a huge page, we should allocate a frame
+      // and copy the inner pagetable. Then we should recursively copy the
+      // content of the pagetable which this PTE is pointing at to the
+      // allocated frame.
+      pagetable_t dst_inner_pagetable = (pagetable_t)kalloc();
+      if (dst_inner_pagetable == NULL) // OOM!
+        return 1;
+      const pagetable_t src_inner_pagetable =
+          (pagetable_t)P2V(pte_follow(pte_src));
+      if (copy_pagetable(dst_inner_pagetable, src_inner_pagetable, level - 1) !=
+          0) // OOM!
+        return 1;
+    }
+  }
+  return 0;
+}
+
+// Defined in trampoline.S
+extern void trampoline(void);
+
+/**
+ * In kernel, we only need to add the trampoline page to the very top of the
+ * virtual address to sync with userspace.
+ */
+void vmm_init_kernel(void) {
+  // Create a trampoline page which is not in the kernel space.
+  // Because we do not know the physical address of loaded kernel.
+  void *trampoline_page = kalloc();
+  memcpy(trampoline_page, trampoline, PAGE_SIZE);
+  // Add the trampoline to kernel address space
+  kernel_pagetable = (pagetable_t)P2V(get_installed_pagetable());
+  vmm_map_pages(
+      kernel_pagetable, TRAMPOLINE_VIRTUAL_ADDRESS, PAGE_SIZE,
+      V2P(trampoline_page),
+      (pte_permissions){.writable = 0, .executable = 1, .userspace = 0});
 }
 
 /**
@@ -93,29 +162,41 @@ int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
   return 0;
 }
 
-// Defined in trampoline.S
-extern void trampoline(void);
-
 /**
- * In kernel, we only need to add the trampoline page to the very top of the
- * virtual address to sync with userspace.
+ * Create a pagetable for a program running in userspace.
+ * This is done by at first deep copying the kernel pagetable and then mapping
+ * the user stuff in the lower addresses. The memory layout is almost as same as
+ * https://i.sstatic.net/Ufj7o.png
+ *
+ * Look for USER_CODE_START, USER_STACK_TOP to see the layout of userspace.
  */
-void vmm_init_kernel(void) {
-  // Create a trampoline page which is not in the kernel space.
-  // Because we do not know the physical address of loaded kernel.
-  void* trampoline_page = kalloc();
-  memcpy(trampoline_page, trampoline, PAGE_SIZE);
-  // Add the trampoline to kernel address space
-  pagetable_t pagetable = (pagetable_t)P2V(get_installed_pagetable());
-  vmm_map_pages(pagetable, TRAMPOLINE_VIRTUAL_ADDRESS, PAGE_SIZE, V2P(trampoline_page), (pte_permissions){.writable = 0, .executable = 1, .userspace = 0});
-}
-
-// create an empty user page table.
-// returns 0 if out of memory.
-pagetable_t vmm_create_pagetable(void) {
+pagetable_t vmm_create_user_pagetable(void *code_page) {
+  // Allocate a pagetable to be our result
   pagetable_t pagetable = (pagetable_t)kalloc();
   if (pagetable == NULL)
     return NULL;
   memset(pagetable, 0, PAGE_SIZE);
+  // Copy everything to new pagetable (original kernelspace to userspace)
+  if (copy_pagetable(pagetable, kernel_pagetable, 3) != 0)
+    return NULL;
+  // Create userspace stuff
+  // TODO: cleanup pagetables in case of OOM
+  void *stack = kalloc();
+  if (stack == NULL) // OOM!
+    return NULL;
+  void *user_code = kalloc();
+  if (user_code == NULL) { // OOM!
+    kfree(stack);
+    return NULL;
+  }
+  // Copy code and allocate pages
+  memcpy(user_code, code_page, PAGE_SIZE);
+  vmm_map_pages(
+      pagetable, USER_CODE_START, PAGE_SIZE, V2P(user_code),
+      (pte_permissions){.writable = 0, .executable = 1, .userspace = 1});
+  vmm_map_pages(
+      pagetable, USER_STACK_TOP & 0xFFFFFFFFFFFFF000, PAGE_SIZE, V2P(stack),
+      (pte_permissions){.writable = 1, .executable = 0, .userspace = 1});
+  // Done
   return pagetable;
 }

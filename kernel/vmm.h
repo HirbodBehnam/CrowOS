@@ -71,19 +71,21 @@ struct pte_t {
   // Accessed; indicates whether this entry has been used for linear-address
   // translation.
   uint64_t accessed : 1;
-  // Ignored by CPU, can be used by US
-  uint64_t ignored1 : 1;
-  // Must be zero
-  uint64_t reserved1 : 1;
-  // Ignored by CPU, can be used by US
-  uint64_t ignored2 : 4;
+  // Indicates whether software has written to the 4-KByte page referenced by this entry
+  uint64_t dirty : 1;
+  // If this is a huge page, this will be set to 1.
+  uint64_t huge_page : 1;
+  // Global page. We don't use them so we set this to zero.
+  uint64_t global : 1;
+  // Ignored by CPU, can be used by us
+  uint64_t ignored2 : 3;
   // The physical address of page or frame. 34-bits is enough for 16 GB of
   // memory. Who the fuck wants to run this shit on a PC with more than 16 GB of
   // memory?
   uint64_t address : 34;
   // Must be zero
   uint64_t reserved2 : 6;
-  // Ignored by CPU, can be used by US
+  // Ignored by CPU, can be used by us
   uint64_t ignored3 : 11;
   // Execute-disable
   uint64_t xd : 1;
@@ -99,4 +101,4 @@ typedef struct pte_t *pagetable_t;
 void vmm_init_kernel(void);
 int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
                   uint64_t pa, pte_permissions permissions);
-pagetable_t vmm_create_pagetable(void);
+pagetable_t vmm_create_user_pagetable(void *code_page);

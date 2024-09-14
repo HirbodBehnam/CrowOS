@@ -15,14 +15,14 @@ jump_to_ring3:
     # Create the interrupt values. See figure 6-9 from Intel Manual Volume 3
     mov  rax, GDT_USER_DATA_SEGMENT | 3
     push rax # SS
-    push rdi # Userspace stack
+    push rsi # Userspace stack
     pushfq   # eflags
     mov  rax, GDT_USER_CODE_SEGMENT | 3
     push rax # CS
-    push rsi # Function to run
+    push rdi # Function to run
     iretq
 
-.section .ring3
+.section ring3
 .global ring3_halt
 ring3_halt:
     # For now, we use busyloop

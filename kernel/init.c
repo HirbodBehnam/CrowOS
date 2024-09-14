@@ -100,18 +100,11 @@ void kmain(void) {
 
 extern void jump_to_ring3(uint64_t program_start, uint64_t stack_virtual_address);
 extern void ring3_halt();
-extern void trampoline();
 
 void test_ring3(void) {
-  // Create a page table
-  void *stack = kalloc(), *trapframe = kalloc(), *trampoline_frame = kalloc(), *code = kalloc();
-  pagetable_t pagetable = vmm_create_pagetable();
-  vmm_map_pages(pagetable, USER_CODE_START, PAGE_SIZE, V2P(code), (pte_permissions){.writable = 0, .executable = 1, .userspace = 1});
-  vmm_map_pages(pagetable, USER_STACK_TOP & 0xFFFFFFFFFFFFF000, PAGE_SIZE, V2P(stack), (pte_permissions){.writable = 1, .executable = 0, .userspace = 1});
-  vmm_map_pages(pagetable, TRAMPOLINE_VIRTUAL_ADDRESS, PAGE_SIZE, V2P(trampoline_frame), (pte_permissions){.writable = 0, .executable = 1, .userspace = 0});
-  vmm_map_pages(pagetable, TRAPFRAME_VIRTUAL_ADDRESS, PAGE_SIZE, V2P(trapframe), (pte_permissions){.writable = 1, .executable = 0, .userspace = 0});
-  // Fill code and trampoline
-  memcpy(trampoline_frame, trampoline, PAGE_SIZE);
-  memcpy(code, ring3_halt, PAGE_SIZE);
-  // TODO: jump tp trampoline to switch to userspace
+  // Create a page table and install it
+  pagetable_t pagetable = vmm_create_user_pagetable((void *) ring3_halt);
+  install_pagetable(V2P(pagetable));
+  // Jump to the trampoline to do userspace stuff
+  jump_to_ring3(USER_CODE_START, USER_STACK_TOP & 0xFFFFFFFFFFFFFFF0);
 }
