@@ -189,14 +189,23 @@ pagetable_t vmm_create_user_pagetable(void *code_page) {
     kfree(stack);
     return NULL;
   }
+  void *trapframe = kalloc();
+  if (trapframe == NULL) { // OOM!
+    kfree(user_code);
+    kfree(stack);
+    return NULL;
+  }
   // Copy code and allocate pages
   memcpy(user_code, code_page, PAGE_SIZE);
   vmm_map_pages(
       pagetable, USER_CODE_START, PAGE_SIZE, V2P(user_code),
       (pte_permissions){.writable = 0, .executable = 1, .userspace = 1});
   vmm_map_pages(
-      pagetable, USER_STACK_TOP & 0xFFFFFFFFFFFFF000, PAGE_SIZE, V2P(stack),
+      pagetable, USER_STACK_BOTTOM, PAGE_SIZE, V2P(stack),
       (pte_permissions){.writable = 1, .executable = 0, .userspace = 1});
+  vmm_map_pages(
+      pagetable, TRAPFRAME_VIRTUAL_ADDRESS, PAGE_SIZE, V2P(trapframe),
+      (pte_permissions){.writable = 1, .executable = 0, .userspace = 0});
   // Done
   return pagetable;
 }

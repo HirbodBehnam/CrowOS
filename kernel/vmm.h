@@ -26,6 +26,11 @@
 #define USER_STACK_TOP ((1ULL << 31) - 1)
 
 /**
+ * Where we should put the bottom of the stack in the virtual address space
+ */
+#define USER_STACK_BOTTOM ((1ULL << 31) - PAGE_SIZE)
+
+/**
  * Where should we put the trampoline in userspace and kernel space.
  * Trampoline must be one page.
  */

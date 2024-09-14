@@ -1,4 +1,5 @@
 #include "gdt.h"
+#include "vmm.h"
 #include <stdint.h>
 
 /**
@@ -131,7 +132,8 @@ extern void reload_segments(void *gdt); // defined in snippet.S
  */
 static void tss_init(void) {
   // Setup TSS itself
-  tss.sp0 = 0x12345678; // TODO: what?
+  tss.sp0 = TRAPFRAME_VIRTUAL_ADDRESS + PAGE_SIZE; // Point to top of trapframe
+  tss.io_bitmap_base = 0xFFFF;
   // Setup the GDT
   gdt_entries[GDT_TSS_SEGMENT / 8].normal.limit = sizeof(tss);
   const uint64_t tss_address = (uint64_t) &tss;
