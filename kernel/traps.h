@@ -21,6 +21,9 @@
 #define T_ALIGN         17      // aligment check
 #define T_MCHK          18      // machine check
 #define T_SIMDERR       19      // SIMD floating point error
+#define T_VMERR         20      // Virtualization Exception
+#define T_CFERR         21      // Control Protection Exception
+
 
 // These are arbitrarily chosen, but with care not to overlap
 // processor defined exceptions or interrupt vectors.

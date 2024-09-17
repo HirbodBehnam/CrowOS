@@ -8,7 +8,6 @@
 #include "printf.h"
 #include "serial_port.h"
 #include "vmm.h"
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -37,6 +36,15 @@ __attribute__((used,
                section(".requests"))) static volatile struct limine_hhdm_request
     hhdm_request = {
         .id = LIMINE_HHDM_REQUEST,
+        .revision = 0,
+};
+
+// Get the physical address of kernel for trampoline page
+__attribute__((
+    used,
+    section(".requests"))) static volatile struct limine_kernel_address_request
+    kernel_address_request = {
+        .id = LIMINE_KERNEL_ADDRESS_REQUEST,
         .revision = 0,
 };
 
@@ -77,7 +85,7 @@ void kmain(void) {
 
   // Initialize memory
   init_mem(hhdm_request.response->offset, memmap_request.response);
-  vmm_init_kernel();
+  vmm_init_kernel(*kernel_address_request.response);
   kprintf("Kernel memory layout changed\n");
 
   // Setup PIC to get interrupts. PIC is disabled via Limine spec
@@ -87,10 +95,11 @@ void kmain(void) {
   kprintf("APIC initialized\n");
 
   // Setup the interrupt vector
-  setup_idt();
+  idt_init();
   kprintf("IDT initialized\n");
 
   // Userspace?
+  kprintf("Entring ring 3\n");
   test_ring3();
   kprintf("Ring 3 exited\n");
 
@@ -98,12 +107,13 @@ void kmain(void) {
   halt();
 }
 
-extern void jump_to_ring3(uint64_t program_start, uint64_t stack_virtual_address);
+extern void jump_to_ring3(uint64_t program_start,
+                          uint64_t stack_virtual_address);
 extern void ring3_halt();
 
 void test_ring3(void) {
   // Create a page table and install it
-  pagetable_t pagetable = vmm_create_user_pagetable((void *) ring3_halt);
+  pagetable_t pagetable = vmm_create_user_pagetable((void *)ring3_halt);
   install_pagetable(V2P(pagetable));
   // Jump to the trampoline to do userspace stuff
   jump_to_ring3(USER_CODE_START, USER_STACK_TOP & 0xFFFFFFFFFFFFFFF0);

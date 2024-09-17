@@ -9,34 +9,51 @@ AS = as
 
 # Compiler flags for kernel
 CFLAGS = -Wall \
-    -Wextra \
-    -Werror \
-    -std=gnu11 \
-    -ffreestanding \
-    -fno-stack-protector \
-    -fno-stack-check \
-    -fno-lto \
-    -fno-PIC \
-    -m64 \
-    -march=x86-64 \
-    -mno-80387 \
-    -mno-mmx \
-    -mno-sse \
-    -mno-sse2 \
-    -mno-red-zone \
-    -mcmodel=kernel \
-    -masm=intel
+	-Wextra \
+	-Werror \
+	-std=gnu11 \
+	-ffreestanding \
+	-fno-stack-protector \
+	-fno-stack-check \
+	-fno-lto \
+	-fno-PIC \
+	-m64 \
+	-march=x86-64 \
+	-mno-80387 \
+	-mno-mmx \
+	-mno-sse \
+	-mno-sse2 \
+	-mno-red-zone \
+	-mcmodel=kernel \
+	-masm=intel
 CFLAGS += -ggdb -gdwarf-2 -O0
 
 KLDFLAGS = -m elf_x86_64 \
-    -nostdlib \
-    -static \
-    -z max-page-size=0x1000
+	-nostdlib \
+	-static \
+	-z max-page-size=0x1000
 
 # Kernel compiling
-OBJS=$K/init.o $K/lib.o $K/snippet.o $K/gdt.o $K/idt.o $K/interrupt.o $K/serial_port.o $K/printf.o $K/mem.o $K/pic.o $K/ring3.o $K/vmm.o $K/trampoline.o
+OBJS=$K/init.o \
+	$K/lib.o \
+	$K/snippet.o \
+	$K/gdt.o \
+	$K/idt.o \
+	$K/serial_port.o \
+	$K/printf.o \
+	$K/mem.o \
+	$K/pic.o \
+	$K/ring3.o \
+	$K/vmm.o \
+	$K/trampoline.o \
+	$K/trap.o \
+	$K/isr.o
+
 $K/kernel: $(OBJS) $K/linker.ld
 	$(LD) $(KLDFLAGS) -T $K/linker.ld -o $K/kernel $(OBJS) 
+
+$K/isr.S: $K/isr.sh
+	./$K/isr.sh > $K/isr.S
 
 # Creating the bootable image
 boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI
@@ -69,5 +86,4 @@ qemu-gdb: boot/disk.img
 
 .PHONY: clean
 clean:
-	rm kernel/*.o kernel/kernel
-	rm boot/disk.img
+	rm -f $K/kernel $K/*.o $K/isr.S boot/disk.img

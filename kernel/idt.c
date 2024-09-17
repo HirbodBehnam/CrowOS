@@ -25,7 +25,7 @@ typedef struct {
 static idtr_t idtr;
 
 // Main interrupt handler function
-extern void handle_dummy_interrupt(void);
+extern void (*const irq_vec[IDT_MAX_DESCRIPTORS]) (void);
 
 /**
  * Sets the IDT entry in the IDT table
@@ -45,12 +45,12 @@ void idt_set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
 /**
  * Setup IDT will load the IDT register with the addresses of interrupt functions
  */
-void setup_idt(void) {
+void idt_init(void) {
     idtr.base = (uintptr_t)&idt[0];
     idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_MAX_DESCRIPTORS - 1;
 
-    for (size_t vector = 0; vector < IDT_MAX_DESCRIPTORS; vector++)
-        idt_set_descriptor(vector, (void *)handle_dummy_interrupt, 0x8E);
+    for (size_t irq = 0; irq < IDT_MAX_DESCRIPTORS; irq++)
+        idt_set_descriptor(irq, (void *)irq_vec[irq], 0x8E);
     
     __asm__ volatile ("lidt %0" : : "m"(idtr)); // load the new IDT
     __asm__ volatile ("sti"); // set the interrupt flag

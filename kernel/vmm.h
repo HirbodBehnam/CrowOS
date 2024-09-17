@@ -1,7 +1,16 @@
 #include "mem.h"
+#include "limine.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+/**
+ * Maximum number of pages which a trampoline can have.
+ * 
+ * I've not sure if there is a good way to do this. I simply hardcoded this thing.
+ * There is a check for this in the linker script.
+ */
+#define TRAMPOLINE_PAGES 2
 
 /**
  * Max virtual address of a memory in a process. This is not The max actual
@@ -32,15 +41,14 @@
 
 /**
  * Where should we put the trampoline in userspace and kernel space.
- * Trampoline must be one page.
  */
-#define TRAMPOLINE_VIRTUAL_ADDRESS ((VA_MAX) - (PAGE_SIZE))
+#define TRAMPOLINE_VIRTUAL_ADDRESS (VA_MAX - TRAMPOLINE_PAGES * PAGE_SIZE)
 
 /**
  * Trapframe virtual address. Used in userspace only. Trapframe must be
  * one page only.
  */
-#define TRAPFRAME_VIRTUAL_ADDRESS ((VA_MAX) - 2 * (PAGE_SIZE))
+#define TRAPFRAME_VIRTUAL_ADDRESS (VA_MAX - (TRAMPOLINE_PAGES + 1) * PAGE_SIZE)
 
 /**
  * Some set of PTE permissions
@@ -103,7 +111,7 @@ _Static_assert(sizeof(struct pte_t) == 8, "Each PTE must be 8 bytes");
  */
 typedef struct pte_t *pagetable_t;
 
-void vmm_init_kernel(void);
+void vmm_init_kernel(const struct limine_kernel_address_response);
 int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
                   uint64_t pa, pte_permissions permissions);
 pagetable_t vmm_create_user_pagetable(void *code_page);
