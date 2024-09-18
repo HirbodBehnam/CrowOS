@@ -76,5 +76,6 @@ void *kalloc(void) {
   // Allocate one page
   void *page = freepages;
   freepages = freepages->next;
+  memset(page, 2, PAGE_SIZE);
   return page;
 }

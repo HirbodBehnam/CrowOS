@@ -212,7 +212,7 @@ pagetable_t vmm_create_user_pagetable(void *code_page) {
       pagetable, USER_STACK_BOTTOM, PAGE_SIZE, V2P(stack),
       (pte_permissions){.writable = 1, .executable = 0, .userspace = 1});
   vmm_map_pages(
-      pagetable, TRAPFRAME_VIRTUAL_ADDRESS, PAGE_SIZE, V2P(trapframe),
+      pagetable, TRAPSTACK_VIRTUAL_ADDRESS, PAGE_SIZE, V2P(trapframe),
       (pte_permissions){.writable = 1, .executable = 0, .userspace = 0});
   // Done
   return pagetable;

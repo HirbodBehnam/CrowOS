@@ -1,14 +1,14 @@
-#include "mem.h"
 #include "limine.h"
+#include "mem.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 /**
  * Maximum number of pages which a trampoline can have.
- * 
- * I've not sure if there is a good way to do this. I simply hardcoded this thing.
- * There is a check for this in the linker script.
+ *
+ * I've not sure if there is a good way to do this. I simply hardcoded this
+ * thing. There is a check for this in the linker script.
  */
 #define TRAMPOLINE_PAGES 2
 
@@ -45,10 +45,10 @@
 #define TRAMPOLINE_VIRTUAL_ADDRESS (VA_MAX - TRAMPOLINE_PAGES * PAGE_SIZE)
 
 /**
- * Trapframe virtual address. Used in userspace only. Trapframe must be
- * one page only.
+ * Trapstack virtual address. Used when userspace is switching to kernel space
+ * to store the interrupt stack. Trapstack is one page only.
  */
-#define TRAPFRAME_VIRTUAL_ADDRESS (VA_MAX - (TRAMPOLINE_PAGES + 1) * PAGE_SIZE)
+#define TRAPSTACK_VIRTUAL_ADDRESS (VA_MAX - (TRAMPOLINE_PAGES + 1) * PAGE_SIZE)
 
 /**
  * Some set of PTE permissions
@@ -84,7 +84,8 @@ struct pte_t {
   // Accessed; indicates whether this entry has been used for linear-address
   // translation.
   uint64_t accessed : 1;
-  // Indicates whether software has written to the 4-KByte page referenced by this entry
+  // Indicates whether software has written to the 4-KByte page referenced by
+  // this entry
   uint64_t dirty : 1;
   // If this is a huge page, this will be set to 1.
   uint64_t huge_page : 1;
