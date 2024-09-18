@@ -26,4 +26,7 @@ jump_to_ring3:
 .global ring3_halt
 ring3_halt:
     # For now, we use busyloop
+    nop
+    syscall
+    nop
     jmp ring3_halt

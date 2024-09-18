@@ -51,3 +51,8 @@ interrupt_handler_asm:
 	pop rsi
 	pop rdi
 	iretq
+
+.global syscall_handler_asm
+.type syscall_handler_asm, @function
+syscall_handler_asm:
+	sysretq

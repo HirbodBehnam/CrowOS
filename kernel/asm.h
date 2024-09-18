@@ -26,7 +26,7 @@ static inline void msr_get(uint32_t msr, uint32_t *lo, uint32_t *hi) {
 static inline void wait_for_interrupt(void) { __asm__ volatile("hlt"); }
 
 // Halt the processor forever
-__attribute__ ((noreturn)) static inline void halt(void) {
+__attribute__((noreturn)) static inline void halt(void) {
   for (;;)
     __asm__ volatile("hlt");
 }
@@ -36,7 +36,9 @@ __attribute__ ((noreturn)) static inline void halt(void) {
  * by pagesize. The address must be physical.
  */
 static inline void install_pagetable(uint64_t pagetable_address) {
-  __asm__ volatile("mov cr3, rax" : : "a"(pagetable_address & 0xFFFFFFFFFFFFF000ULL));
+  __asm__ volatile("mov cr3, rax"
+                   :
+                   : "a"(pagetable_address & 0xFFFFFFFFFFFFF000ULL));
 }
 
 /**
@@ -46,4 +48,15 @@ static inline uint64_t get_installed_pagetable() {
   uint64_t cr3;
   __asm__ volatile("mov rax, cr3" : "=a"(cr3));
   return cr3 & 0xFFFFFFFFFFFFF000ULL;
+}
+
+static inline uint64_t rdmsr(uint32_t msr) {
+  uint32_t lo, hi;
+  asm volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(msr));
+  return (uint64_t)lo | ((uint64_t)hi << 32);
+}
+
+static inline void wrmsr(uint32_t msr, uint64_t value) {
+  const uint32_t lo = value & 0xFFFFFFFF, hi = value >> 32;
+  asm volatile("wrmsr" : : "a"(lo), "d"(hi), "c"(msr));
 }

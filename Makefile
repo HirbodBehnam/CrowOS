@@ -47,6 +47,7 @@ OBJS=$K/init.o \
 	$K/vmm.o \
 	$K/trampoline.o \
 	$K/trap.o \
+	$K/syscall.o \
 	$K/isr.o
 
 $K/kernel: $(OBJS) $K/linker.ld

@@ -6,6 +6,7 @@
 #include "mem.h"
 #include "pic.h"
 #include "printf.h"
+#include "syscall.h"
 #include "serial_port.h"
 #include "vmm.h"
 #include <stddef.h>
@@ -77,6 +78,7 @@ void kmain(void) {
 
   // Setup new GDT
   gdt_init();
+  syscall_init();
 
   // Initialize serial port
   if (serial_init() != 0)

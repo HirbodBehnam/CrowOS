@@ -68,19 +68,19 @@ static union gdt_entry gdt_entries[] = {
                 .access = 0b10010011,
                 .granularity = 0b00000000,
                 .base_hi = 0x00}},
-    // 64-Bit Code Segement (User)
-    {.normal = {.limit = 0x0000,
-                .base_low = 0x0000,
-                .base_mid = 0x00,
-                .access = 0b11111011,
-                .granularity = 0b00100000,
-                .base_hi = 0x00}},
     // 64-Bit Data Segement (User)
     {.normal = {.limit = 0x0000,
                 .base_low = 0x0000,
                 .base_mid = 0x00,
                 .access = 0b11110011,
                 .granularity = 0b00000000,
+                .base_hi = 0x00}},
+    // 64-Bit Code Segement (User)
+    {.normal = {.limit = 0x0000,
+                .base_low = 0x0000,
+                .base_mid = 0x00,
+                .access = 0b11111011,
+                .granularity = 0b00100000,
                 .base_hi = 0x00}},
     // TSS. Limit and base will be filled before this gets loaded
     {.normal = {.limit = 0x0000,

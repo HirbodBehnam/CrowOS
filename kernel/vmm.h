@@ -48,7 +48,13 @@
  * Trapstack virtual address. Used when userspace is switching to kernel space
  * to store the interrupt stack. Trapstack is one page only.
  */
-#define TRAPSTACK_VIRTUAL_ADDRESS (VA_MAX - (TRAMPOLINE_PAGES + 1) * PAGE_SIZE)
+#define TRAPSTACK_VIRTUAL_ADDRESS (TRAMPOLINE_VIRTUAL_ADDRESS - PAGE_SIZE)
+
+/**
+ * The stack which we can use for syscall of user programs. The first value
+ * (top 8 bytes) is the RSP of the user program.
+ */
+#define SYSCALLSTACK_VIRTUAL_ADDRESS (TRAPSTACK_VIRTUAL_ADDRESS - PAGE_SIZE)
 
 /**
  * Some set of PTE permissions
