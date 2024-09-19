@@ -36,7 +36,7 @@ KLDFLAGS = -m elf_x86_64 \
 # Kernel compiling
 OBJS=$K/init.o \
 	$K/lib.o \
-	$K/snippet.o \
+	$K/snippets.o \
 	$K/gdt.o \
 	$K/idt.o \
 	$K/serial_port.o \
@@ -45,6 +45,7 @@ OBJS=$K/init.o \
 	$K/pic.o \
 	$K/ring3.o \
 	$K/vmm.o \
+	$K/proc.o \
 	$K/trampoline.o \
 	$K/trap.o \
 	$K/syscall.o \

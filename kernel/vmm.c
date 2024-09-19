@@ -175,10 +175,11 @@ int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
  * This is done by at first deep copying the kernel pagetable and then mapping
  * the user stuff in the lower addresses. The memory layout is almost as same as
  * https://i.sstatic.net/Ufj7o.png
- *
- * Look for USER_CODE_START, USER_STACK_TOP to see the layout of userspace.
+ * 
+ * This method does not allocate pages for code, data and heap and only allocates
+ * trap pages and the kernel address space. However, a single stack page is allocated.
  */
-pagetable_t vmm_create_user_pagetable(void *code_page) {
+pagetable_t vmm_create_user_pagetable() {
   // Allocate a pagetable to be our result
   pagetable_t pagetable = (pagetable_t)kalloc();
   if (pagetable == NULL)
@@ -187,33 +188,35 @@ pagetable_t vmm_create_user_pagetable(void *code_page) {
   // Copy everything to new pagetable (original kernelspace to userspace)
   if (copy_pagetable(pagetable, kernel_pagetable, 3) != 0)
     return NULL;
-  // Create userspace stuff
-  // TODO: cleanup pagetables in case of OOM
-  void *stack = kalloc();
-  if (stack == NULL) // OOM!
-    return NULL;
-  void *user_code = kalloc();
-  if (user_code == NULL) { // OOM!
-    kfree(stack);
-    return NULL;
-  }
-  void *trapframe = kalloc();
-  if (trapframe == NULL) { // OOM!
-    kfree(user_code);
-    kfree(stack);
-    return NULL;
-  }
-  // Copy code and allocate pages
-  memcpy(user_code, code_page, PAGE_SIZE);
+  // Create dedicated pages
+  void *user_stack = NULL, *int_stack = NULL, *syscall_stack = NULL;
+  if ((user_stack = kalloc()) == NULL)
+    goto failed;
+  if ((int_stack = kalloc()) == NULL)
+    goto failed;
+  if ((syscall_stack = kalloc()) == NULL)
+    goto failed;
+  // Map pages
+  // TODO: later map trampoline?
   vmm_map_pages(
-      pagetable, USER_CODE_START, PAGE_SIZE, V2P(user_code),
-      (pte_permissions){.writable = 0, .executable = 1, .userspace = 1});
-  vmm_map_pages(
-      pagetable, USER_STACK_BOTTOM, PAGE_SIZE, V2P(stack),
+      pagetable, USER_STACK_BOTTOM, PAGE_SIZE, V2P(user_stack),
       (pte_permissions){.writable = 1, .executable = 0, .userspace = 1});
   vmm_map_pages(
-      pagetable, TRAPSTACK_VIRTUAL_ADDRESS, PAGE_SIZE, V2P(trapframe),
+      pagetable, INTSTACK_VIRTUAL_ADDRESS, PAGE_SIZE, V2P(int_stack),
+      (pte_permissions){.writable = 1, .executable = 0, .userspace = 0});
+  vmm_map_pages(
+      pagetable, SYSCALLSTACK_VIRTUAL_ADDRESS, PAGE_SIZE, V2P(syscall_stack),
       (pte_permissions){.writable = 1, .executable = 0, .userspace = 0});
   // Done
   return pagetable;
+
+
+  failed:
+  if (user_stack != NULL)
+    kfree(user_stack);
+  if (int_stack != NULL)
+    kfree(int_stack);
+  if (syscall_stack != NULL)
+    kfree(syscall_stack);
+  return NULL;
 }

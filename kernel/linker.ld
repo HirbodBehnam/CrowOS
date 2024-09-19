@@ -30,7 +30,7 @@ SECTIONS
         *(trampsec)
         . = ALIGN(0x1000);
         PROVIDE(trampsec_end = .);
-        ASSERT(. - _trampoline <= 0x2000, "error: trampoline larger than 2 pages");
+        ASSERT(. - _trampoline <= 0x10000, "error: trampoline larger than 10 pages");
         _ring3 = .;
         *(ring3)
         . = ALIGN(0x1000);

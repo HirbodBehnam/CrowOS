@@ -6,8 +6,9 @@
 #include "mem.h"
 #include "pic.h"
 #include "printf.h"
-#include "syscall.h"
+#include "proc.h"
 #include "serial_port.h"
+#include "syscall.h"
 #include "vmm.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -60,8 +61,6 @@ __attribute__((
     section(
         ".requests_end_marker"))) static volatile LIMINE_REQUESTS_END_MARKER;
 
-void test_ring3(void);
-
 // The following will be our kernel's entry point.
 void kmain(void) {
   // Ensure the bootloader actually understands our base revision (see spec).
@@ -100,23 +99,7 @@ void kmain(void) {
   idt_init();
   kprintf("IDT initialized\n");
 
-  // Userspace?
-  kprintf("Entring ring 3\n");
-  test_ring3();
-  kprintf("Ring 3 exited\n");
-
-  // We're done, just hang...
-  halt();
-}
-
-extern void jump_to_ring3(uint64_t program_start,
-                          uint64_t stack_virtual_address);
-extern void ring3_halt();
-
-void test_ring3(void) {
-  // Create a page table and install it
-  pagetable_t pagetable = vmm_create_user_pagetable((void *)ring3_halt);
-  install_pagetable(V2P(pagetable));
-  // Jump to the trampoline to do userspace stuff
-  jump_to_ring3(USER_CODE_START, USER_STACK_TOP & 0xFFFFFFFFFFFFFFF0);
+  // Run the scheduler to schedule processes
+  scheduler_init();
+  scheduler();
 }

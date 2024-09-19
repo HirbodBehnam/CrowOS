@@ -1,3 +1,4 @@
+#pragma once
 #include "limine.h"
 #include "mem.h"
 #include <stdbool.h>
@@ -10,7 +11,7 @@
  * I've not sure if there is a good way to do this. I simply hardcoded this
  * thing. There is a check for this in the linker script.
  */
-#define TRAMPOLINE_PAGES 2
+#define TRAMPOLINE_PAGES 10
 
 /**
  * Max virtual address of a memory in a process. This is not The max actual
@@ -45,16 +46,16 @@
 #define TRAMPOLINE_VIRTUAL_ADDRESS (VA_MAX - TRAMPOLINE_PAGES * PAGE_SIZE)
 
 /**
- * Trapstack virtual address. Used when userspace is switching to kernel space
- * to store the interrupt stack. Trapstack is one page only.
+ * Interrupt stack virtual address. Used when userspace is switching to kernel space
+ * to store the interrupt stack. Interrupt stack is one page only.
  */
-#define TRAPSTACK_VIRTUAL_ADDRESS (TRAMPOLINE_VIRTUAL_ADDRESS - PAGE_SIZE)
+#define INTSTACK_VIRTUAL_ADDRESS (TRAMPOLINE_VIRTUAL_ADDRESS - PAGE_SIZE)
 
 /**
  * The stack which we can use for syscall of user programs. The first value
  * (top 8 bytes) is the RSP of the user program.
  */
-#define SYSCALLSTACK_VIRTUAL_ADDRESS (TRAPSTACK_VIRTUAL_ADDRESS - PAGE_SIZE)
+#define SYSCALLSTACK_VIRTUAL_ADDRESS (INTSTACK_VIRTUAL_ADDRESS - PAGE_SIZE)
 
 /**
  * Some set of PTE permissions
@@ -121,4 +122,4 @@ typedef struct pte_t *pagetable_t;
 void vmm_init_kernel(const struct limine_kernel_address_response);
 int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
                   uint64_t pa, pte_permissions permissions);
-pagetable_t vmm_create_user_pagetable(void *code_page);
+pagetable_t vmm_create_user_pagetable();

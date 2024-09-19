@@ -27,7 +27,7 @@
 
 // These are arbitrarily chosen, but with care not to overlap
 // processor defined exceptions or interrupt vectors.
-#define T_SYSCALL     0x80      // system call
+#define T_YEILD       0x80      // yeild the process
 #define T_DEFAULT      500      // catchall
 
 #define T_IRQ0          32      // IRQ 0 corresponds to int T_IRQ

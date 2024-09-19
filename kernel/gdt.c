@@ -132,7 +132,7 @@ extern void reload_segments(void *gdt); // defined in snippet.S
  */
 static void tss_init(void) {
   // Setup TSS itself
-  tss.sp0 = TRAPSTACK_VIRTUAL_ADDRESS + PAGE_SIZE; // Point to top of trapstack
+  tss.sp0 = INTSTACK_VIRTUAL_ADDRESS + PAGE_SIZE; // Point to top of trapstack
   tss.io_bitmap_base = 0xFFFF;
   // Setup the GDT
   gdt_entries[GDT_TSS_SEGMENT / 8].normal.limit = sizeof(tss);
