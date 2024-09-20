@@ -66,6 +66,13 @@ extern void context_switch(uint64_t to_rsp, uint64_t *from_rsp);
 extern void jump_to_ring3(void);
 
 /**
+ * Gets the current running process of this CPU core
+ */
+struct process *my_process(void) {
+  return running_process;
+}
+
+/**
  * Setup the scheduler by creating a process which runs as the very program
  */
 void scheduler_init(void) {

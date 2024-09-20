@@ -14,6 +14,7 @@ void handle_trap(uint64_t irq /*, uint64_t error_code*/) {
     serial_echo_back_char();
     break;
   case T_YEILD:
+    my_process()->state = RUNNABLE;
     scheduler_switch_back();
     break;
   default:

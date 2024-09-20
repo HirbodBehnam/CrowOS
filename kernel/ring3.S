@@ -55,4 +55,6 @@ ring3_init:
     nop
     syscall
     nop
+    int 0x80
+    nop
     jmp ring3_init

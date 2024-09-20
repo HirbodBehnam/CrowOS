@@ -22,6 +22,7 @@ struct process {
   pagetable_t pagetable;
 };
 
+struct process *my_process(void);
 void scheduler_init(void);
 void scheduler_switch_back(void);
 void scheduler(void);
