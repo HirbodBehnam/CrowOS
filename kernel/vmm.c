@@ -87,30 +87,6 @@ static struct pte_t *walk(pagetable_t pagetable, uint64_t va, bool alloc) {
 }
 
 /**
- * Walk in user/kernel space and find the frame assosiated with a page address.
- * The page must be present. If writable argument is true, the page must be
- * writable as well.
- *
- * Return the kernel virtual address which can be simply written to or
- * NULL in case of access violation.
- */
-static void *walk_address(pagetable_t pagetable, uint64_t va, bool writable,
-                          bool user) {
-  if (va >= VA_MAX || va < VA_MIN)
-    return NULL;
-
-  struct pte_t *pte = walk(pagetable, va, false);
-  if (pte == NULL || !pte->present)
-    return NULL;
-  if (user && !pte->us)
-    return NULL;
-  if (writable && !pte->rw)
-    return NULL;
-
-  return (void *)P2V(pte_follow(*pte));
-}
-
-/**
  * Deep copy the pagetable (and not the frames) to another pagetable.
  *
  * TODO: I know that if we goto OOM state we won't free the frames used by
@@ -192,32 +168,6 @@ int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
     pte->xd = !permissions.executable;
     pte->us = permissions.userspace;
     pte->address = PTE_GET_PHY_ADDRESS(current_pa);
-  }
-  return 0;
-}
-
-/**
- * Just like memcpy but copies a data to the frames of the pagetable.
- * This function will look for write permission and kernelspace permission.
- *
- * Returns 0 on success, -1 if permission issues or non-existing page.
- */
-int vmm_memcpy_to(pagetable_t pagetable, uint64_t dst, const void *src,
-                  size_t n, bool userspace) {
-  while (n > 0) {
-    // Find the physical frame
-    void *frame = walk_address(pagetable, dst, true, userspace);
-    if (frame == NULL)
-      return -1;
-    // Copy data to it
-    size_t to_copy = PAGE_SIZE - (dst % PAGE_SIZE);
-    if (to_copy > n)
-      to_copy = n;
-    memmove(frame + (dst % PAGE_SIZE), src, n);
-
-    n -= to_copy;
-    dst += to_copy;
-    src += to_copy;
   }
   return 0;
 }

@@ -92,10 +92,10 @@ void scheduler_init(void) {
   // zero the registers just before jumping to userspace, we can simply ignore
   // these registers and just put a return address at the very top of stack.
   uint64_t return_address = (uint64_t)jump_to_ring3;
-  if (vmm_memcpy_to(p->pagetable,
-                    INTSTACK_VIRTUAL_ADDRESS - sizeof(return_address),
-                    &return_address, sizeof(return_address), false) != 0)
-    panic("scheduler_init return");
+  install_pagetable(V2P(p->pagetable));
+  *(volatile uint64_t *)(INTSTACK_VIRTUAL_ADDRESS - sizeof(uint64_t)) = return_address;
+  // Note to myself: We can keep the pagetable. In the scheduler we will install
+  // this exact pagetable again.
   // 6 registers and return value
   p->resume_stack_pointer = INTSTACK_VIRTUAL_ADDRESS - sizeof(uint64_t) * 7;
   // Then we are good. The scheduler should be able to run this program
