@@ -1,5 +1,5 @@
 #!/bin/bash
-echo ".section trampsec" # put this in trapoline
+echo ".section .text"
 echo ".intel_syntax noprefix" # fuck AT&T
 for irq in {0..255}; do
 	echo ".globl irq$irq"

@@ -1,6 +1,6 @@
 #include "gdt.h"
 
-.section trampsec
+.section .text
 .intel_syntax noprefix
 .global interrupt_handler_asm
 .type interrupt_handler_asm, @function

@@ -144,29 +144,15 @@ static int copy_pagetable(pagetable_t dst, const pagetable_t src, int level) {
 }
 
 // Provided by linker
-extern char trampsec_start[], trampsec_end[], ring3_start[];
+extern char ring3_start[];
 
 /**
- * In kernel, we only need to add the trampoline page to the very top of the
- * virtual address to sync with userspace.
+ * We just save the limine_kernel_address_response to be later accessed.
  */
 void vmm_init_kernel(
     const struct limine_kernel_address_response _kernel_address) {
   kernel_address = _kernel_address;
-  // Add the trampoline to kernel address space
   kernel_pagetable = (pagetable_t)P2V(get_installed_pagetable());
-  for (uint64_t logical_address = (uint64_t)trampsec_start;
-       logical_address < (uint64_t)trampsec_end; logical_address += PAGE_SIZE) {
-    const uint64_t physical_address =
-        kernel_address.physical_base +
-        (logical_address - kernel_address.virtual_base);
-    vmm_map_pages(
-        kernel_pagetable,
-        TRAMPOLINE_VIRTUAL_ADDRESS +
-            (logical_address - (uint64_t)trampsec_start),
-        PAGE_SIZE, physical_address,
-        (pte_permissions){.writable = 0, .executable = 1, .userspace = 0});
-  }
 }
 
 /**

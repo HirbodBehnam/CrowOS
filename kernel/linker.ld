@@ -25,12 +25,6 @@ SECTIONS
     .text : {
         *(.text .text.*)
         . = ALIGN(0x1000);
-        PROVIDE(trampsec_start = .);
-        _trampoline = .;
-        *(trampsec)
-        . = ALIGN(0x1000);
-        PROVIDE(trampsec_end = .);
-        ASSERT(. - _trampoline <= 0x10000, "error: trampoline larger than 10 pages");
         PROVIDE(ring3_start = .);
         _ring3 = .;
         *(ring3)

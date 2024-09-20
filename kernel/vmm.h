@@ -8,14 +8,6 @@
 #endif
 
 /**
- * Maximum number of pages which a trampoline can have.
- *
- * I've not sure if there is a good way to do this. I simply hardcoded this
- * thing. There is a check for this in the linker script.
- */
-#define TRAMPOLINE_PAGES 10
-
-/**
  * Max virtual address of a memory in a process. This is not The max actual
  * virtual address because Limine puts its stuff in there. So we go a little bit
  * lower because we need to mutally map trampoline to kernel and userspace.
@@ -43,15 +35,10 @@
 #define USER_STACK_BOTTOM ((1ULL << 31) - PAGE_SIZE)
 
 /**
- * Where should we put the trampoline in userspace and kernel space.
- */
-#define TRAMPOLINE_VIRTUAL_ADDRESS (VA_MAX - TRAMPOLINE_PAGES * PAGE_SIZE)
-
-/**
  * Interrupt stack virtual address. Used when userspace is switching to kernel space
  * to store the interrupt stack. Interrupt stack is one page only.
  */
-#define INTSTACK_VIRTUAL_ADDRESS (TRAMPOLINE_VIRTUAL_ADDRESS - PAGE_SIZE)
+#define INTSTACK_VIRTUAL_ADDRESS (VA_MAX - PAGE_SIZE)
 
 /**
  * The stack which we can use for syscall of user programs. The first value
