@@ -1,9 +1,11 @@
 #pragma once
+#ifndef __ASSEMBLER__
 #include "limine.h"
 #include "mem.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#endif
 
 /**
  * Maximum number of pages which a trampoline can have.
@@ -33,7 +35,7 @@
 /**
  * Where we should put the top of the stack in the virtual address space
  */
-#define USER_STACK_TOP ((1ULL << 31) - 1)
+#define USER_STACK_TOP (1ULL << 31)
 
 /**
  * Where we should put the bottom of the stack in the virtual address space
@@ -57,6 +59,7 @@
  */
 #define SYSCALLSTACK_VIRTUAL_ADDRESS (INTSTACK_VIRTUAL_ADDRESS - PAGE_SIZE)
 
+#ifndef __ASSEMBLER__
 /**
  * Some set of PTE permissions
  */
@@ -120,6 +123,10 @@ _Static_assert(sizeof(struct pte_t) == 8, "Each PTE must be 8 bytes");
 typedef struct pte_t *pagetable_t;
 
 void vmm_init_kernel(const struct limine_kernel_address_response);
+uint64_t vmm_ring3init_frame(void);
 int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
                   uint64_t pa, pte_permissions permissions);
+int vmm_memcpy_to(pagetable_t pagetable, uint64_t dst, const void *src,
+                  size_t n, bool userspace);
 pagetable_t vmm_create_user_pagetable();
+#endif

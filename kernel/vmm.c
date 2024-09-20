@@ -21,6 +21,11 @@
 #define PAGETABLE_PTE_COUNT 512
 
 /**
+ * Gets the lower boundry of the page which we are trying to access.
+ */
+#define PAGE_ROUND_DOWN(a) ((a) & ~(PAGE_SIZE - 1))
+
+/**
  * Follow a PTE to the pagetable/frame it is pointing to.
  * Note that this returns the physical address and later should be converted
  * to virtual address.
@@ -34,6 +39,11 @@ static inline pagetable_t pte_follow(struct pte_t pte) {
  * address space.
  */
 static pagetable_t kernel_pagetable;
+
+/**
+ * kernel address which we got from limine
+ */
+static struct limine_kernel_address_response kernel_address;
 
 /**
  * Return the address of the PTE in page table pagetable that corresponds to
@@ -77,6 +87,30 @@ static struct pte_t *walk(pagetable_t pagetable, uint64_t va, bool alloc) {
 }
 
 /**
+ * Walk in user/kernel space and find the frame assosiated with a page address.
+ * The page must be present. If writable argument is true, the page must be
+ * writable as well.
+ *
+ * Return the kernel virtual address which can be simply written to or
+ * NULL in case of access violation.
+ */
+static void *walk_address(pagetable_t pagetable, uint64_t va, bool writable,
+                          bool user) {
+  if (va >= VA_MAX || va < VA_MIN)
+    return NULL;
+
+  struct pte_t *pte = walk(pagetable, va, false);
+  if (pte == NULL || !pte->present)
+    return NULL;
+  if (user && !pte->us)
+    return NULL;
+  if (writable && !pte->rw)
+    return NULL;
+
+  return (void *)P2V(pte_follow(*pte));
+}
+
+/**
  * Deep copy the pagetable (and not the frames) to another pagetable.
  *
  * TODO: I know that if we goto OOM state we won't free the frames used by
@@ -109,18 +143,16 @@ static int copy_pagetable(pagetable_t dst, const pagetable_t src, int level) {
   return 0;
 }
 
-// Defined in trampoline.S
-extern void trampoline(void);
-
 // Provided by linker
-extern char trampsec_start[], trampsec_end[];
+extern char trampsec_start[], trampsec_end[], ring3_start[];
 
 /**
  * In kernel, we only need to add the trampoline page to the very top of the
  * virtual address to sync with userspace.
  */
 void vmm_init_kernel(
-    const struct limine_kernel_address_response kernel_address) {
+    const struct limine_kernel_address_response _kernel_address) {
+  kernel_address = _kernel_address;
   // Add the trampoline to kernel address space
   kernel_pagetable = (pagetable_t)P2V(get_installed_pagetable());
   for (uint64_t logical_address = (uint64_t)trampsec_start;
@@ -135,6 +167,14 @@ void vmm_init_kernel(
         PAGE_SIZE, physical_address,
         (pte_permissions){.writable = 0, .executable = 1, .userspace = 0});
   }
+}
+
+/**
+ * Gets the frame of the ring3_init function.
+ */
+uint64_t vmm_ring3init_frame(void) {
+  return kernel_address.physical_base +
+         ((uint64_t)ring3_start - kernel_address.virtual_base);
 }
 
 /**
@@ -171,13 +211,40 @@ int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
 }
 
 /**
+ * Just like memcpy but copies a data to the frames of the pagetable.
+ * This function will look for write permission and kernelspace permission.
+ *
+ * Returns 0 on success, -1 if permission issues or non-existing page.
+ */
+int vmm_memcpy_to(pagetable_t pagetable, uint64_t dst, const void *src,
+                  size_t n, bool userspace) {
+  while (n > 0) {
+    // Find the physical frame
+    void *frame = walk_address(pagetable, dst, true, userspace);
+    if (frame == NULL)
+      return -1;
+    // Copy data to it
+    size_t to_copy = PAGE_SIZE - (dst % PAGE_SIZE);
+    if (to_copy > n)
+      to_copy = n;
+    memmove(frame + (dst % PAGE_SIZE), src, n);
+
+    n -= to_copy;
+    dst += to_copy;
+    src += to_copy;
+  }
+  return 0;
+}
+
+/**
  * Create a pagetable for a program running in userspace.
  * This is done by at first deep copying the kernel pagetable and then mapping
  * the user stuff in the lower addresses. The memory layout is almost as same as
  * https://i.sstatic.net/Ufj7o.png
- * 
- * This method does not allocate pages for code, data and heap and only allocates
- * trap pages and the kernel address space. However, a single stack page is allocated.
+ *
+ * This method does not allocate pages for code, data and heap and only
+ * allocates trap pages and the kernel address space. However, a single stack
+ * page is allocated.
  */
 pagetable_t vmm_create_user_pagetable() {
   // Allocate a pagetable to be our result
@@ -210,8 +277,7 @@ pagetable_t vmm_create_user_pagetable() {
   // Done
   return pagetable;
 
-
-  failed:
+failed:
   if (user_stack != NULL)
     kfree(user_stack);
   if (int_stack != NULL)
