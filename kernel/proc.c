@@ -93,11 +93,11 @@ void scheduler_init(void) {
   // these registers and just put a return address at the very top of stack.
   uint64_t return_address = (uint64_t)jump_to_ring3;
   install_pagetable(V2P(p->pagetable));
-  *(volatile uint64_t *)(INTSTACK_VIRTUAL_ADDRESS - sizeof(uint64_t)) = return_address;
+  *(volatile uint64_t *)(INTSTACK_VIRTUAL_ADDRESS_TOP - sizeof(uint64_t)) = return_address;
   // Note to myself: We can keep the pagetable. In the scheduler we will install
   // this exact pagetable again.
   // 6 registers and return value
-  p->resume_stack_pointer = INTSTACK_VIRTUAL_ADDRESS - sizeof(uint64_t) * 7;
+  p->resume_stack_pointer = INTSTACK_VIRTUAL_ADDRESS_TOP - sizeof(uint64_t) * 7;
   // Then we are good. The scheduler should be able to run this program
   p->state = RUNNABLE;
   kprintf("Initialized first userprog\n");

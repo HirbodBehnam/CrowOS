@@ -205,10 +205,10 @@ pagetable_t vmm_create_user_pagetable() {
       pagetable, USER_STACK_BOTTOM, PAGE_SIZE, V2P(user_stack),
       (pte_permissions){.writable = 1, .executable = 0, .userspace = 1});
   vmm_map_pages(
-      pagetable, INTSTACK_VIRTUAL_ADDRESS, PAGE_SIZE, V2P(int_stack),
+      pagetable, INTSTACK_VIRTUAL_ADDRESS_BOTTOM, PAGE_SIZE, V2P(int_stack),
       (pte_permissions){.writable = 1, .executable = 0, .userspace = 0});
   vmm_map_pages(
-      pagetable, SYSCALLSTACK_VIRTUAL_ADDRESS, PAGE_SIZE, V2P(syscall_stack),
+      pagetable, SYSCALLSTACK_VIRTUAL_ADDRESS_BOTTOM, PAGE_SIZE, V2P(syscall_stack),
       (pte_permissions){.writable = 1, .executable = 0, .userspace = 0});
   // Done
   return pagetable;

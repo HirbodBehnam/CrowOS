@@ -1,11 +1,11 @@
 #pragma once
 #ifndef __ASSEMBLER__
 #include "limine.h"
-#include "mem.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #endif
+#include "mem.h"
 
 /**
  * Max virtual address of a memory in a process. This is not The max actual
@@ -38,13 +38,18 @@
  * Interrupt stack virtual address. Used when userspace is switching to kernel space
  * to store the interrupt stack. Interrupt stack is one page only.
  */
-#define INTSTACK_VIRTUAL_ADDRESS (VA_MAX - PAGE_SIZE)
+#define INTSTACK_VIRTUAL_ADDRESS_TOP VA_MAX
+#define INTSTACK_VIRTUAL_ADDRESS_BOTTOM (INTSTACK_VIRTUAL_ADDRESS_TOP - PAGE_SIZE)
 
 /**
- * The stack which we can use for syscall of user programs. The first value
- * (top 8 bytes) is the RSP of the user program.
+ * The stack which we can use for syscall of user programs. The first values
+ * (top 16 bytes) is the RSP and then RAX of the user program. Note that
+ * the RAX value will get overwritten in the syscall subroutine.
+ * View trampoline.S for more info.
+ * (This points to top of stack)
  */
-#define SYSCALLSTACK_VIRTUAL_ADDRESS (INTSTACK_VIRTUAL_ADDRESS - PAGE_SIZE)
+#define SYSCALLSTACK_VIRTUAL_ADDRESS_TOP INTSTACK_VIRTUAL_ADDRESS_BOTTOM
+#define SYSCALLSTACK_VIRTUAL_ADDRESS_BOTTOM (SYSCALLSTACK_VIRTUAL_ADDRESS_TOP - PAGE_SIZE)
 
 #ifndef __ASSEMBLER__
 /**

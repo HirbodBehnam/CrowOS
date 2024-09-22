@@ -1,3 +1,4 @@
+#include "syscall.h"
 #include "asm.h"
 #include "gdt.h"
 
@@ -36,4 +37,33 @@ void syscall_init(void) {
   wrmsr(IA32_LSTAR, (uint64_t)syscall_handler_asm);
   // We don't mask anything (we can mask interrupts tho... shall we?)
   wrmsr(IA32_FMASK, 0);
+}
+
+/**
+ * The entry point of the syscall for each process.
+ */
+uint64_t syscall_c(uint64_t syscall_number) {
+  switch (syscall_number) {
+  case SYSCALL_READ:
+    break;
+  case SYSCALL_WRITE:
+    break;
+  case SYSCALL_OPEN:
+    break;
+  case SYSCALL_CLOSE:
+    break;
+  case SYSCALL_BRK:
+    break;
+  case SYSCALL_EXEC:
+    break;
+  case SYSCALL_EXIT:
+    break;
+  case SYSCALL_WAIT:
+    break;
+
+  default:
+    break;
+  }
+
+  return 0;
 }
