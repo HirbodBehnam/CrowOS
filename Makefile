@@ -49,7 +49,10 @@ OBJS=$K/init.o \
 	$K/trampoline.o \
 	$K/trap.o \
 	$K/syscall.o \
-	$K/isr.o
+	$K/isr.o \
+	$K/spinlock.o \
+	$K/sleeplock.o \
+	$K/smt.o \
 
 $K/kernel: $(OBJS) $K/linker.ld
 	$(LD) $(KLDFLAGS) -T $K/linker.ld -o $K/kernel $(OBJS) 

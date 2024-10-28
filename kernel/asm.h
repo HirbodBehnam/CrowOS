@@ -1,6 +1,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// Interrupt enable flag
+#define FLAGS_IF (1 << 9)
+
 /**
  * Outputs a value to a port using the OUT instruction
  */
@@ -50,13 +53,53 @@ static inline uint64_t get_installed_pagetable() {
   return cr3 & 0xFFFFFFFFFFFFF000ULL;
 }
 
+/**
+ * Reads the module specific register
+ */
 static inline uint64_t rdmsr(uint32_t msr) {
   uint32_t lo, hi;
   asm volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(msr));
   return (uint64_t)lo | ((uint64_t)hi << 32);
 }
 
+/**
+ * Writes to module specific register
+ */
 static inline void wrmsr(uint32_t msr, uint64_t value) {
   const uint32_t lo = value & 0xFFFFFFFF, hi = value >> 32;
   asm volatile("wrmsr" : : "a"(lo), "d"(hi), "c"(msr));
+}
+
+/**
+ * Reads the flag register
+ */
+static inline uint64_t read_rflags(void) {
+  uint64_t flags;
+  asm volatile("pushf\n"
+               "pop %0"
+               : "=g"(flags));
+  return flags;
+}
+
+/**
+ * Clear Interrupt Flag
+ */
+static inline void cli(void) {
+  asm volatile("cli");
+}
+
+/**
+ * Set Interrupt Flag
+ */
+static inline void sti(void) {
+  asm volatile("sti");
+}
+
+/**
+ * Gets the processor ID of the running processor
+ */
+static inline uint32_t get_processor_id(void) {
+  uint32_t timestamp_low, timestamp_high, processor_id;
+  asm volatile("rdtscp" : "=a"(timestamp_low), "=d"(timestamp_high), "=c"(processor_id));
+  return processor_id;
 }
