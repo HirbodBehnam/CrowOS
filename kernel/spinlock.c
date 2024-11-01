@@ -2,14 +2,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "asm.h"
-#include "smt.h"
+#include "smp.h"
+#include "spinlock.h"
 #include "printf.h"
-
-struct spinlock {
-    uint32_t locked;
-    // Which CPU is holding this?
-    uint32_t holding_cpu;
-};
 
 /**
  * We need to save the status of interrupt flag in a stack.
@@ -22,14 +17,22 @@ static struct {
     bool was_enabled;
 } interrupt_enable_stack[MAX_CORES];
 
+/**
+ * Saves if the interrupts where enabled before and disables them
+ */
 static void save_and_disable_interrupts() {
+    bool interrupts_were_enabled = (read_rflags() & FLAGS_IF) != 0;
     cli();
     uint32_t processor_id = get_processor_id();
     if (interrupt_enable_stack[processor_id].depth == 0)
-        interrupt_enable_stack[processor_id].was_enabled = (read_rflags() & FLAGS_IF) != 0;
+        interrupt_enable_stack[processor_id].was_enabled = interrupts_were_enabled;
     interrupt_enable_stack[processor_id].depth++;
 }
 
+/**
+ * Restores the interrupts enabled register which was saved with
+ * save_and_disable_interrupts function.
+ */
 static void restore_interrupts() {
     uint32_t processor_id = get_processor_id();
     interrupt_enable_stack[processor_id].depth--;
@@ -48,6 +51,9 @@ static bool this_cpu_holding_lock(const struct spinlock *lock) {
     return result;
 }
 
+/**
+ * Lock the spinlock and disable interrupts
+ */
 void spinlock_lock(struct spinlock *lock) {
     // Disable interrupts
     save_and_disable_interrupts();
@@ -62,6 +68,9 @@ void spinlock_lock(struct spinlock *lock) {
     lock->holding_cpu = get_processor_id();
 }
 
+/**
+ * Unlock the spinlock and restores the interrupt flags
+ */
 void spinlock_unlock(struct spinlock *lock) {
     // Remember that we have disabled interrupts. So we should still have this lock
     if (!this_cpu_holding_lock(lock))

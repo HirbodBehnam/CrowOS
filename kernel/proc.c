@@ -1,6 +1,7 @@
 #include "proc.h"
 #include "asm.h"
 #include "printf.h"
+#include "smp.h"
 
 /**
  * The kernel stackpointer which we used just before we have switched to
@@ -26,7 +27,7 @@ static struct process processes[MAX_PROCESSES];
 /**
  * Which process are we running?
  */
-static struct process *running_process = NULL;
+static struct process *running_process[MAX_CORES];
 
 /**
  * Atomically get the next PID
@@ -68,9 +69,7 @@ extern void jump_to_ring3(void);
 /**
  * Gets the current running process of this CPU core
  */
-struct process *my_process(void) {
-  return running_process;
-}
+struct process *my_process(void) { return running_process[get_processor_id()]; }
 
 /**
  * Setup the scheduler by creating a process which runs as the very program
@@ -93,7 +92,8 @@ void scheduler_init(void) {
   // these registers and just put a return address at the very top of stack.
   uint64_t return_address = (uint64_t)jump_to_ring3;
   install_pagetable(V2P(p->pagetable));
-  *(volatile uint64_t *)(INTSTACK_VIRTUAL_ADDRESS_TOP - sizeof(uint64_t)) = return_address;
+  *(volatile uint64_t *)(INTSTACK_VIRTUAL_ADDRESS_TOP - sizeof(uint64_t)) =
+      return_address;
   // Note to myself: We can keep the pagetable. In the scheduler we will install
   // this exact pagetable again.
   // 6 registers and return value
@@ -109,25 +109,25 @@ void scheduler_init(void) {
  * program. This is like the very bare bone of the yield function.
  */
 void scheduler_switch_back(void) {
-  context_switch(kernel_stackpointer, &running_process->resume_stack_pointer);
+  context_switch(kernel_stackpointer,
+                 &running_process[get_processor_id()]->resume_stack_pointer);
 }
 
 /**
  * Scheduler the scheduler of the operating system.
  */
 void scheduler(void) {
-  kprintf("Scheduling...\n");
   for (;;) {                                     // forever...
     for (size_t i = 0; i < MAX_PROCESSES; i++) { // look for processes...
-      if (processes[i].state == RUNNABLE) {      // which are runnable...
-        // then found...
-        running_process = &processes[i];
+      if (__sync_val_compare_and_swap(&processes[i].state, RUNNABLE,
+                                      RUNNING)) { // which are runnable...
+        // and make them running and when found
+        running_process[get_processor_id()] = &processes[i];
         // switch to its memory space...
-        install_pagetable(V2P(running_process->pagetable));
+        install_pagetable(V2P(processes[i].pagetable));
         // and run it...
-        running_process->state = RUNNING;
         context_switch(processes->resume_stack_pointer, &kernel_stackpointer);
-        running_process = NULL;
+        running_process[get_processor_id()] = NULL;
         // until we return and we do everything again!
       }
     }

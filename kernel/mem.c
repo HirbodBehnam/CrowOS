@@ -1,9 +1,10 @@
 #include "mem.h"
 #include "lib.h"
+#include "spinlock.h"
 #include "printf.h"
 
 /**
- * The HHDM offset with current Limine works with
+ * The HHDM offset which current Limine works with
  */
 volatile uint64_t hhdm_offset;
 
@@ -19,6 +20,7 @@ struct freepage_t {
  * List of free pages
  */
 static struct freepage_t *freepages = NULL;
+static struct spinlock freepages_lock;
 
 /**
  * Initialize memory stuff. This means to first initialize each page and then
@@ -57,12 +59,15 @@ void kfree(void *page) {
   const uint64_t physical_address = V2P(page);
   if (physical_address % PAGE_SIZE != 0)
     panic("kfree");
+  // Lock the list
+  spinlock_lock(&freepages_lock);
   // Fill with junk to catch dangling refs.
   //memset(page, 1, PAGE_SIZE);
   // In this page, we only store the reference to next page
   struct freepage_t *current_page = (struct freepage_t *)page;
   current_page->next = freepages;
   freepages = current_page;
+  spinlock_unlock(&freepages_lock);
 }
 
 /**
@@ -70,12 +75,14 @@ void kfree(void *page) {
  * Will return NULL if we are out of space.
  */
 void *kalloc(void) {
-  // Are we OOM?
-  if (freepages == NULL)
-    return NULL;
-  // Allocate one page
-  void *page = freepages;
-  freepages = freepages->next;
-  memset(page, 2, PAGE_SIZE);
+  spinlock_lock(&freepages_lock);
+  void *page = NULL;
+  if (freepages != NULL) { // OOM check
+    // Allocate one page
+    page = freepages;
+    freepages = freepages->next;
+    memset(page, 2, PAGE_SIZE);
+  }
+  spinlock_unlock(&freepages_lock);
   return page;
 }

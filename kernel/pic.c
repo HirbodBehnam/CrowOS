@@ -1,6 +1,7 @@
 #include "pic.h"
 #include "asm.h"
 #include "mem.h"
+#include "smp.h"
 #include "traps.h"
 
 #define IOAPIC 0xFEC00000 // Default physical address of IO APIC
@@ -107,29 +108,28 @@ void ioapic_enable(int irq, int cpunum) {
 #define TDCR (0x03E0 / 4)   // Timer Divide Configuration
 
 /**
- * The address of the local APIC. Because we are not supporting SMP,
- * we can simply use a global variable for local APIC.
+ * The address of the local APIC for each CPU core.
  *
  * Also, it's very important to note that this must be uint32_t pointer
  * and writes must be 32 bits wide or else, this won't work.
  */
-volatile uint32_t *lapic;
+static volatile uint32_t *lapic[MAX_CORES];
 
 /**
  * Write a value to local APIC register
  */
 static void lapic_write(int index, int value) {
-  lapic[index] = value;
-  lapic[ID]; // wait for write to finish, by reading
+  uint32_t core_id = get_processor_id();
+  lapic[core_id][index] = value;
+  lapic[core_id][ID]; // wait for write to finish, by reading
 }
 
 /**
  * Get the address of memory location which the local APIC resides.
  */
 static uintptr_t cpu_get_apic_base(void) {
-  uint32_t eax, edx;
-  msr_get(IA32_APIC_BASE_MSR, &eax, &edx);
-  return (eax & 0xfffff000);
+  uint64_t msr = rdmsr(IA32_APIC_BASE_MSR);
+  return msr & 0xfffff000;
 }
 
 /**
@@ -137,7 +137,7 @@ static uintptr_t cpu_get_apic_base(void) {
  * and storing it in a global variable.
  */
 void lapic_init(void) {
-  lapic = (volatile uint32_t *)P2V(cpu_get_apic_base());
+  lapic[get_processor_id()] = (volatile uint32_t *)P2V(cpu_get_apic_base());
 }
 
 /**

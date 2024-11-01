@@ -4,6 +4,9 @@
 // Interrupt enable flag
 #define FLAGS_IF (1 << 9)
 
+// The MSR which we store the process ID in
+#define IA32_TSC_AUX 0xC0000103
+
 /**
  * Outputs a value to a port using the OUT instruction
  */
@@ -18,11 +21,6 @@ static inline uint8_t inb(uint16_t port) {
   uint8_t al;
   __asm__ volatile("in al, dx" : "=a"(al) : "d"(port));
   return al;
-}
-
-// Get MSR register content
-static inline void msr_get(uint32_t msr, uint32_t *lo, uint32_t *hi) {
-  __asm__ volatile("rdmsr" : "=a"(*lo), "=d"(*hi) : "c"(msr));
 }
 
 // Wait for next interrupt
@@ -75,7 +73,7 @@ static inline void wrmsr(uint32_t msr, uint64_t value) {
  */
 static inline uint64_t read_rflags(void) {
   uint64_t flags;
-  asm volatile("pushf\n"
+  asm volatile("pushf\n\t"
                "pop %0"
                : "=g"(flags));
   return flags;

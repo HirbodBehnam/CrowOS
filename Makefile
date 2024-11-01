@@ -52,7 +52,6 @@ OBJS=$K/init.o \
 	$K/isr.o \
 	$K/spinlock.o \
 	$K/sleeplock.o \
-	$K/smt.o \
 
 $K/kernel: $(OBJS) $K/linker.ld
 	$(LD) $(KLDFLAGS) -T $K/linker.ld -o $K/kernel $(OBJS) 
@@ -74,11 +73,11 @@ boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI
 # Emulation
 QEMU=qemu-system-x86_64
 # Do not add KVM here or you are unable to debug the OS
-QEMUOPT = -smp 1 -m 128M -bios /usr/share/ovmf/OVMF.fd -hda boot/disk.img -serial stdio
+QEMUOPT = -smp 2 -m 128M -bios /usr/share/ovmf/OVMF.fd -hda boot/disk.img -serial stdio
 
 .PHONY: qemu
 qemu: boot/disk.img
-	$(QEMU) $(QEMUOPT)
+	$(QEMU) -cpu Haswell $(QEMUOPT)
 
 .PHONY: qemu-kvm
 qemu-kvm: boot/disk.img
@@ -87,7 +86,12 @@ qemu-kvm: boot/disk.img
 .PHONY: qemu-gdb
 qemu-gdb: boot/disk.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
-	$(QEMU) $(QEMUOPT) -s -S
+	$(QEMU) -cpu Haswell $(QEMUOPT) -s -S
+
+.PHONY: qemu-kvm-gdb
+qemu-kvm-gdb: boot/disk.img
+	@echo "*** Now run 'gdb' in another window." 1>&2
+	$(QEMU) -enable-kvm -cpu host $(QEMUOPT) -s -S
 
 .PHONY: clean
 clean:

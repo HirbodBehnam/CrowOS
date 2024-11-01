@@ -51,8 +51,12 @@ void idt_init(void) {
     idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_MAX_DESCRIPTORS - 1;
 
     for (size_t irq = 0; irq < IDT_MAX_DESCRIPTORS; irq++)
-        idt_set_descriptor(irq, (void *)irq_vec[irq], irq == T_YEILD ? 0xEE : 0x8E);
-    
+        idt_set_descriptor(irq, (void *)irq_vec[irq], irq == T_YEILD ? 0xEE : 0x8E); 
+}
+
+/**
+ * Loads the IDT register from the idtr value
+ */
+void idt_load(void) {
     __asm__ volatile ("lidt %0" : : "m"(idtr)); // load the new IDT
-    __asm__ volatile ("sti"); // set the interrupt flag
 }

@@ -3,10 +3,13 @@
  * https://github.com/mit-pdos/xv6-riscv/blob/de247db5e6384b138f270e0a7c745989b5a9c23b/kernel/printf.c#L26C1-L51C1
  */
 
-#include "serial_port.h"
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "serial_port.h"
+#include "spinlock.h"
+
+static struct spinlock print_lock;
 
 static const char digits[] = "0123456789abcdef";
 
@@ -43,6 +46,8 @@ int kprintf(const char *fmt, ...) {
   va_list ap;
   int i, cx, c0, c1, c2;
   char *s;
+
+  spinlock_lock(&print_lock);
 
   va_start(ap, fmt);
   for (i = 0; (cx = fmt[i] & 0xff) != 0; i++) {
@@ -100,12 +105,12 @@ int kprintf(const char *fmt, ...) {
   }
   va_end(ap);
 
+  spinlock_unlock(&print_lock);
   return 0;
 }
 
 void panic(const char *s) {
-  kprintf("panic: ");
-  kprintf("%s\n", s);
+  kprintf("panic: %s\n", s);
   for (;;)
     ;
 }
