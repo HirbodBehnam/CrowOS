@@ -73,7 +73,8 @@ boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI
 # Emulation
 QEMU=qemu-system-x86_64
 # Do not add KVM here or you are unable to debug the OS
-QEMUOPT = -smp 2 -m 128M -bios /usr/share/ovmf/OVMF.fd -hda boot/disk.img -serial stdio
+QEMUOPT = -smp 1 -m 128M -bios /usr/share/ovmf/OVMF.fd -hda boot/disk.img -serial stdio
+#QEMUOPT += -d int,cpu_reset
 
 .PHONY: qemu
 qemu: boot/disk.img

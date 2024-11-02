@@ -6,6 +6,8 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "printf.h"
+#include "asm.h"
 #include "serial_port.h"
 #include "spinlock.h"
 
@@ -110,6 +112,7 @@ int kprintf(const char *fmt, ...) {
 }
 
 void panic(const char *s) {
+  cli();
   kprintf("panic: %s\n", s);
   for (;;)
     ;

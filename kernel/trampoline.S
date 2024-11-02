@@ -62,14 +62,14 @@ syscall_handler_asm:
 	# restore rax.
 	mov [SYSCALLSTACK_VIRTUAL_ADDRESS_TOP - 8], rax
 	mov rax, rsp
-	mov [SYSCALLSTACK_VIRTUAL_ADDRESS_TOP], rax
+	mov [SYSCALLSTACK_VIRTUAL_ADDRESS_TOP - 16], rax
+	# Restore rax
 	mov rax, [SYSCALLSTACK_VIRTUAL_ADDRESS_TOP - 8]
-	# Apply the stack pointer. We do not need rax anymore so "- 8"
-	mov rsp, SYSCALLSTACK_VIRTUAL_ADDRESS_TOP - 8
+	# Apply the stack pointer
+	mov rsp, SYSCALLSTACK_VIRTUAL_ADDRESS_TOP - 16
 	# Save syscall registers
 	push rcx
 	push r11
-	sub rsp, 8 # 16 byte stack alignmnet
 	# Jump to C code
 	mov rcx, rdx # third argument
 	mov rdx, rsi # second argument
@@ -78,7 +78,6 @@ syscall_handler_asm:
 	call syscall_c
 	# Result is in rax. We don't need to do anything
 	# Then switch everything back
-	add rsp, 8
 	pop r11
 	pop rcx
 	pop rsp
