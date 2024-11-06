@@ -31,12 +31,12 @@ extern void (*const irq_vec[IDT_MAX_DESCRIPTORS]) (void);
 /**
  * Sets the IDT entry in the IDT table
  */
-void idt_set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
+void idt_set_descriptor(uint8_t vector, void* isr, uint8_t flags, uint8_t ist) {
     idt_entry_t* descriptor = &idt[vector];
 
     descriptor->isr_low        = (uint64_t)isr & 0xFFFF;
     descriptor->kernel_cs      = GDT_KERNEL_CODE_SEGMENT;
-    descriptor->ist            = 0; // we do not put a separate stack for each interrupt
+    descriptor->ist            = ist;
     descriptor->attributes     = flags;
     descriptor->isr_mid        = ((uint64_t)isr >> 16) & 0xFFFF;
     descriptor->isr_high       = ((uint64_t)isr >> 32) & 0xFFFFFFFF;
@@ -44,14 +44,17 @@ void idt_set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
 }
 
 /**
- * Setup IDT will load the IDT register with the addresses of interrupt functions
+ * Setup IDT create the IDT table with the addresses of interrupt functions
  */
 void idt_init(void) {
     idtr.base = (uintptr_t)&idt[0];
     idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_MAX_DESCRIPTORS - 1;
 
     for (size_t irq = 0; irq < IDT_MAX_DESCRIPTORS; irq++)
-        idt_set_descriptor(irq, (void *)irq_vec[irq], irq == T_YEILD ? 0xEE : 0x8E); 
+        idt_set_descriptor(irq,
+        (void *)irq_vec[irq],
+        irq == T_YEILD ? 0xEE : 0x8E,
+        irq == T_DBLFLT ? IST_DOUBLE_FAULT_STACK_INDEX : 0);
 }
 
 /**

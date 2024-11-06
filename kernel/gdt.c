@@ -1,4 +1,5 @@
 #include "gdt.h"
+#include "mem.h"
 #include "vmm.h"
 #include <stdint.h>
 
@@ -130,25 +131,27 @@ extern void reload_segments(void *gdt); // defined in snippet.S
  *
  * This function must be called before gdt_init.
  */
-static void tss_init(void) {
+void tss_init_and_load(void) {
   // Setup TSS itself
   tss.sp0 = INTSTACK_VIRTUAL_ADDRESS_TOP;
   tss.io_bitmap_base = 0xFFFF;
-  // Setup the GDT
-  gdt_entries[GDT_TSS_SEGMENT / 8].normal.limit = sizeof(tss);
-  const uint64_t tss_address = (uint64_t) &tss;
-  gdt_entries[GDT_TSS_SEGMENT / 8].normal.base_low = tss_address & 0xFFFF;
-  gdt_entries[GDT_TSS_SEGMENT / 8].normal.base_mid = (tss_address >> 16) & 0xFF;
-  gdt_entries[GDT_TSS_SEGMENT / 8].normal.base_hi = (tss_address >> 24) & 0xFF;
-  gdt_entries[GDT_TSS_SEGMENT / 8 + 1].sys_desc_upper.base_very_high = (tss_address >> 32) & 0xFFFFFFFF;
+  // Create some IST entries
+  tss.ist[IST_DOUBLE_FAULT_STACK_INDEX - 1] = (uint64_t) kalloc();
+  // Load it
+  __asm__ volatile("ltr ax" : : "a"(GDT_TSS_SEGMENT)); // load the task register
 }
 
 void gdt_init(void) {
-  tss_init();
+  gdt_entries[GDT_TSS_SEGMENT / 8].normal.limit = sizeof(tss);
+  const uint64_t tss_address = (uint64_t)&tss;
+  gdt_entries[GDT_TSS_SEGMENT / 8].normal.base_low = tss_address & 0xFFFF;
+  gdt_entries[GDT_TSS_SEGMENT / 8].normal.base_mid = (tss_address >> 16) & 0xFF;
+  gdt_entries[GDT_TSS_SEGMENT / 8].normal.base_hi = (tss_address >> 24) & 0xFF;
+  gdt_entries[GDT_TSS_SEGMENT / 8 + 1].sys_desc_upper.base_very_high =
+      (tss_address >> 32) & 0xFFFFFFFF;
   struct gdtr gdt = {
       .limit = sizeof(gdt_entries) - 1,
       .ptr = (uint64_t)&gdt_entries[0],
   };
   reload_segments(&gdt);
-  __asm__ volatile ("LTR AX" : : "a"(GDT_TSS_SEGMENT)); // load the task register
 }

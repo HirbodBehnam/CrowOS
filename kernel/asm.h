@@ -1,11 +1,25 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// Interrupt enable flag
-#define FLAGS_IF (1 << 9)
+#define FLAGS_CF   (1UL << 0) // Carry flag
+#define FLAGS_PF   (1UL << 2) // Parity flag
+#define FLAGS_AF   (1UL << 4) // Auxiliary Carry flag
+#define FLAGS_ZF   (1UL << 6) // Zero flag
+#define FLAGS_SF   (1UL << 7) // Sign flag
+#define FLAGS_TF   (1UL << 8) // Trap flag
+#define FLAGS_IF   (1UL << 9) // Interrupt enable flag
+#define FLAGS_DF   (1UL << 10) // Direction flag
+#define FLAGS_OF   (1UL << 11) // Overflow flag
+#define FLAGS_IOPL (3UL << 12) // I/O privilege level
+#define FLAGS_NT   (1UL << 14) // Nested task flag
+#define FLAGS_RF   (1UL << 16) // Resume flag
+#define FLAGS_VM   (1UL << 17) // Virtual 8086 mode flag
+#define FLAGS_AC   (1UL << 18) // Alignment Check
+#define FLAGS_VIF  (1UL << 19) // Virtual interrupt flag
+#define FLAGS_VIP  (1UL << 20) // Virtual interrupt pending
+#define FLAGS_ID   (1UL << 21) // Able to use CPUID instruction 
 
-// The MSR which we store the process ID in
-#define IA32_TSC_AUX 0xC0000103
+#define IA32_TSC_AUX 0xC0000103 // The MSR which we store the process ID in
 
 /**
  * Outputs a value to a port using the OUT instruction

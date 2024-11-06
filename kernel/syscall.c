@@ -35,8 +35,11 @@ void syscall_init(void) {
   wrmsr(IA32_STAR, *(uint64_t *)&segments);
   // Set the address to jump to
   wrmsr(IA32_LSTAR, (uint64_t)syscall_handler_asm);
-  // We don't mask anything (we can mask interrupts tho... shall we?)
-  wrmsr(IA32_FMASK, 0);
+  // Mask just like Linux kernel:
+  // https://elixir.bootlin.com/linux/v6.11.6/source/arch/x86/kernel/cpu/common.c#L2054-L2063
+  wrmsr(IA32_FMASK, FLAGS_CF | FLAGS_PF | FLAGS_AF | FLAGS_ZF | FLAGS_SF |
+                        FLAGS_TF | FLAGS_IF | FLAGS_DF | FLAGS_OF | FLAGS_IOPL |
+                        FLAGS_NT | FLAGS_RF | FLAGS_AC | FLAGS_ID);
 }
 
 /**

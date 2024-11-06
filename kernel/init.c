@@ -42,14 +42,6 @@ __attribute__((
         .revision = 0,
 };
 
-// Enable SMP
-__attribute__((used,
-               section(".requests"))) static volatile struct limine_smp_request
-    smp_request = {
-        .id = LIMINE_SMP_REQUEST,
-        .revision = 0,
-};
-
 // Finally, define the start and end markers for the Limine requests.
 // These can also be moved anywhere, to any .c file, as seen fit.
 __attribute__((used,
@@ -60,15 +52,6 @@ __attribute__((
     used,
     section(
         ".requests_end_marker"))) static volatile LIMINE_REQUESTS_END_MARKER;
-
-// Other CPU cores will start from here
-void slave_cpu_start(struct limine_smp_info *core) {
-  // Save the process ID
-  wrmsr(IA32_TSC_AUX, core->processor_id);
-  // Print a hello message
-  kprintf("Hello from slave %u\n", get_processor_id());
-  halt();
-}
 
 // The following will be our kernel's entry point.
 void kmain(void) {
@@ -94,6 +77,9 @@ void kmain(void) {
   vmm_init_kernel(*kernel_address_request.response);
   kprintf("Kernel memory layout changed\n");
 
+  // Initialize the TSS
+  tss_init_and_load();
+
   // Setup IOAPIC to get interrupts. PIC is disabled via Limine spec
   ioapic_init();
   serial_init_interrupt();
@@ -108,16 +94,6 @@ void kmain(void) {
 
   // On each core initialize the lapic
   lapic_init();
-
-  // Start other cores
-  kprintf("Detected %d cores\n", smp_request.response->cpu_count);
-  for (uint64_t i = 0; i < smp_request.response->cpu_count; i++) {
-    if (smp_request.response->cpus[i]->processor_id == get_processor_id())
-      continue;
-    if (smp_request.response->cpus[i]->processor_id >= MAX_CORES)
-      continue;
-    smp_request.response->cpus[i]->goto_address = slave_cpu_start;
-  }
 
   // Load the IDT and enable interrupts on each core
   idt_load();
