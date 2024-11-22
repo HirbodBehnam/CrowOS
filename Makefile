@@ -52,6 +52,7 @@ OBJS=$K/init.o \
 	$K/isr.o \
 	$K/spinlock.o \
 	$K/sleeplock.o \
+	$K/pcie.o \
 
 $K/kernel: $(OBJS) $K/linker.ld
 	$(LD) $(KLDFLAGS) -T $K/linker.ld -o $K/kernel $(OBJS) 
@@ -73,7 +74,9 @@ boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI
 # Emulation
 QEMU=qemu-system-x86_64
 # Do not add KVM here or you are unable to debug the OS
-QEMUOPT = -smp 1 -m 128M -bios /usr/share/ovmf/OVMF.fd -hda boot/disk.img -serial stdio
+QEMUOPT = -M q35 -smp 1 -m 128M -bios /usr/share/ovmf/OVMF.fd
+QEMUOPT += -serial mon:stdio
+QEMUOPT += -drive file=boot/disk.img,if=none,id=nvm -device nvme,serial=deadbeef,drive=nvm
 #QEMUOPT += -d int,cpu_reset
 
 .PHONY: qemu

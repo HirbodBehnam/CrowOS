@@ -37,6 +37,22 @@ static inline uint8_t inb(uint16_t port) {
   return al;
 }
 
+/**
+ * Outputs a value to a port using the OUT instruction
+ */
+static inline void outl(uint16_t port, uint32_t value) {
+  __asm__ volatile("out dx, eax" : : "a"(value), "d"(port));
+}
+
+/**
+ * Inputs a value from a port using the IN instruciton
+ */
+static inline uint32_t inl(uint16_t port) {
+  uint32_t eax;
+  __asm__ volatile("in eax, dx" : "=a"(eax) : "d"(port));
+  return eax;
+}
+
 // Wait for next interrupt
 static inline void wait_for_interrupt(void) { __asm__ volatile("hlt"); }
 

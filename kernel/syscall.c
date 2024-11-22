@@ -65,7 +65,7 @@ uint64_t syscall_c(uint64_t syscall_number) {
     break;
 
   default:
-    break;
+    return -1;
   }
 
   return 0;

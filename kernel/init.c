@@ -4,6 +4,7 @@
 #include "lib.h"
 #include "limine.h"
 #include "mem.h"
+#include "pcie.h"
 #include "pic.h"
 #include "printf.h"
 #include "proc.h"
@@ -101,6 +102,9 @@ void kmain(void) {
   
   // Initialize syscall on each core
   syscall_init();
+
+  // List PCIe for testing
+  pcie_list();
 
   // Run the scheduler to schedule processes
   kprintf("Master Core Initiated\n");
