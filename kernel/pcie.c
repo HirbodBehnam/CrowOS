@@ -1,6 +1,7 @@
 #include "pcie.h"
 #include "asm.h"
 #include "printf.h"
+#include "spinlock.h"
 #include <stdint.h>
 
 /**
@@ -17,11 +18,18 @@ uint16_t pci_config_read_word(uint8_t bus, uint8_t slot, uint8_t func,
   uint32_t address = (uint32_t)((lbus << 16) | (lslot << 11) | (lfunc << 8) |
                                 (offset & 0xFC) | ((uint32_t)0x80000000));
 
+  // Save and disable interrupts
+  bool interrupts_enabled = is_interrupts_enabled();
+  cli();
   // Write out the address
   outl(0xCF8, address);
   // Read in the data
   // (offset & 2) * 8) = 0 will choose the first word of the 32-bit register
-  return (uint16_t)((inl(0xCFC) >> ((offset & 2) * 8)) & 0xFFFF);
+  uint16_t result = (uint16_t)((inl(0xCFC) >> ((offset & 2) * 8)) & 0xFFFF);
+  // Restore interrupts
+  if (interrupts_enabled)
+    sti();
+  return result;
 }
 
 void pcie_list(void) {

@@ -21,7 +21,7 @@ static struct {
  * Saves if the interrupts where enabled before and disables them
  */
 static void save_and_disable_interrupts() {
-    bool interrupts_were_enabled = (read_rflags() & FLAGS_IF) != 0;
+    bool interrupts_were_enabled = is_interrupts_enabled();
     cli();
     uint32_t processor_id = get_processor_id();
     if (interrupt_enable_stack[processor_id].depth == 0)

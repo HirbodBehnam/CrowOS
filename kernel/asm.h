@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define FLAGS_CF   (1UL << 0) // Carry flag
 #define FLAGS_PF   (1UL << 2) // Parity flag
@@ -130,4 +131,11 @@ static inline uint32_t get_processor_id(void) {
   uint32_t timestamp_low, timestamp_high, processor_id;
   asm volatile("rdtscp" : "=a"(timestamp_low), "=d"(timestamp_high), "=c"(processor_id));
   return processor_id;
+}
+
+/**
+ * Returns true if interrupts are enabled
+ */
+static inline bool is_interrupts_enabled(void) {
+  return (read_rflags() & FLAGS_IF) != 0;
 }
