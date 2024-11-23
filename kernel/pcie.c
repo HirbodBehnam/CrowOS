@@ -32,6 +32,29 @@ uint16_t pci_config_read_word(uint8_t bus, uint8_t slot, uint8_t func,
   return result;
 }
 
+void *pcie_get_nvme_base(void) {
+  for (uint32_t device = 0; device < 32; device++) {
+    uint16_t vendor = pci_config_read_word(0, device, 0, 0);
+    // Check if device exists
+    if (vendor == 0xFFFF)
+      continue;
+    uint16_t class_subclass = pci_config_read_word(0, device, 0, 0xA);
+    uint16_t prog_if = pci_config_read_word(0, device, 0, 0x8) >> 8;
+    // Check NVMe
+    if (class_subclass != 0x108 || prog_if != 2)
+      continue;
+    kprintf("HEADER: %x\n", pci_config_read_word(0, device, 0, 0xC + 2));
+    // Read the BAR values
+    uint32_t bar0 = (uint32_t)pci_config_read_word(0, device, 0, 0x10) | ((uint32_t)pci_config_read_word(0, device, 0, 0x12) << 16);
+    uint32_t bar1 = (uint32_t)pci_config_read_word(0, device, 0, 0x14) | ((uint32_t)pci_config_read_word(0, device, 0, 0x16) << 16);
+    // Create the physical address
+    uint64_t bar = (((uint64_t)bar1 << 32) | (bar0 & 0xFFFFFFF0));
+    kprintf("NVMe at %p (%p.%p)\n", bar, bar0, bar1);
+    return (void *)bar;
+  }
+  return NULL;
+}
+
 void pcie_list(void) {
   kprintf("Attached PCIe devices:\n");
   for (uint8_t bus = 0; bus < 255; bus++) {

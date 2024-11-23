@@ -105,6 +105,7 @@ void kmain(void) {
 
   // List PCIe for testing
   pcie_list();
+  pcie_get_nvme_base();
 
   // Run the scheduler to schedule processes
   kprintf("Master Core Initiated\n");
