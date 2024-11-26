@@ -2,13 +2,12 @@
 #include "asm.h"
 #include "printf.h"
 #include "spinlock.h"
-#include <stdint.h>
 
 /**
  * Reads a PCIe register from a bus and a slot.
  * From https://wiki.osdev.org/PCI
  */
-uint16_t pci_config_read_word(uint8_t bus, uint8_t slot, uint8_t func,
+static uint16_t pci_config_read_word(uint8_t bus, uint8_t slot, uint8_t func,
                               uint8_t offset) {
   uint32_t lbus = (uint32_t)bus;
   uint32_t lslot = (uint32_t)slot;
@@ -32,7 +31,12 @@ uint16_t pci_config_read_word(uint8_t bus, uint8_t slot, uint8_t func,
   return result;
 }
 
-void *pcie_get_nvme_base(void) {
+/**
+ * Gets the NVMe base register from PCIe tree. This is the physical address
+ *
+ * Returns 0 if not found.
+ */
+uint64_t pcie_get_nvme_base(void) {
   for (uint32_t device = 0; device < 32; device++) {
     uint16_t vendor = pci_config_read_word(0, device, 0, 0);
     // Check if device exists
@@ -43,16 +47,15 @@ void *pcie_get_nvme_base(void) {
     // Check NVMe
     if (class_subclass != 0x108 || prog_if != 2)
       continue;
-    kprintf("HEADER: %x\n", pci_config_read_word(0, device, 0, 0xC + 2));
     // Read the BAR values
     uint32_t bar0 = (uint32_t)pci_config_read_word(0, device, 0, 0x10) | ((uint32_t)pci_config_read_word(0, device, 0, 0x12) << 16);
     uint32_t bar1 = (uint32_t)pci_config_read_word(0, device, 0, 0x14) | ((uint32_t)pci_config_read_word(0, device, 0, 0x16) << 16);
     // Create the physical address
     uint64_t bar = (((uint64_t)bar1 << 32) | (bar0 & 0xFFFFFFF0));
-    kprintf("NVMe at %p (%p.%p)\n", bar, bar0, bar1);
-    return (void *)bar;
+    kprintf("NVMe found at %p\n", bar);
+    return bar;
   }
-  return NULL;
+  return 0;
 }
 
 void pcie_list(void) {

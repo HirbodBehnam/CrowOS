@@ -51,6 +51,9 @@ static bool this_cpu_holding_lock(const struct spinlock *lock) {
     return result;
 }
 
+/**
+ * Lock the spinlock and disable interrupts
+ */
 void spinlock_lock(struct spinlock *lock) {
     // Disable interrupts
     save_and_disable_interrupts();
@@ -65,6 +68,9 @@ void spinlock_lock(struct spinlock *lock) {
     lock->holding_cpu = get_processor_id();
 }
 
+/**
+ * Unlock the spinlock and restores the interrupt flags
+ */
 void spinlock_unlock(struct spinlock *lock) {
     // Remember that we have disabled interrupts. So we should still have this lock
     if (!this_cpu_holding_lock(lock))

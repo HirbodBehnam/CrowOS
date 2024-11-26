@@ -10,3 +10,5 @@
 #define NVME_ACQ_OFFSET		0x0030  /* Admin Completion Queue Base Address */
 #define NVME_SQ0_OFFSET		0x1000  /* Submission Queue 0 (admin) Tail Doorbell */
 #define NVME_CQ0_OFFSET		0x1004  /* Completion Queue 0 (admin) Head Doorbell */
+
+void nvme_init(void);

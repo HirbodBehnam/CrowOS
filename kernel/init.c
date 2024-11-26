@@ -4,6 +4,7 @@
 #include "lib.h"
 #include "limine.h"
 #include "mem.h"
+#include "nvme.h"
 #include "pcie.h"
 #include "pic.h"
 #include "printf.h"
@@ -86,6 +87,9 @@ void kmain(void) {
   serial_init_interrupt();
   kprintf("IO APIC initialized\n");
 
+  // Setup NVMe
+  nvme_init();
+
   // Setup the interrupt vector
   idt_init();
   kprintf("IDT initialized\n");
@@ -102,10 +106,6 @@ void kmain(void) {
   
   // Initialize syscall on each core
   syscall_init();
-
-  // List PCIe for testing
-  pcie_list();
-  pcie_get_nvme_base();
 
   // Run the scheduler to schedule processes
   kprintf("Master Core Initiated\n");

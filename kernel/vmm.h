@@ -118,5 +118,6 @@ void vmm_init_kernel(const struct limine_kernel_address_response);
 uint64_t vmm_ring3init_frame(void);
 int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
                   uint64_t pa, pte_permissions permissions);
+void *vmm_io_memmap(uint64_t pa, uint64_t size);
 pagetable_t vmm_create_user_pagetable();
 #endif

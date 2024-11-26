@@ -13,10 +13,10 @@
 
 static struct spinlock print_lock;
 
-static const char digits[] = "0123456789abcdef";
+static const char *digits = "0123456789abcdef";
 
 static void printint(long long xx, int base, int sign) {
-  char buf[16];
+  char buf[20];
   int i;
   unsigned long long x;
 

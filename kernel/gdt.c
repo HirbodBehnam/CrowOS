@@ -141,6 +141,9 @@ void tss_init_and_load(void) {
   __asm__ volatile("ltr ax" : : "a"(GDT_TSS_SEGMENT)); // load the task register
 }
 
+/**
+ * Setups the GDT based on the needs of our operating system
+ */
 void gdt_init(void) {
   gdt_entries[GDT_TSS_SEGMENT / 8].normal.limit = sizeof(tss);
   const uint64_t tss_address = (uint64_t)&tss;

@@ -46,6 +46,16 @@ static pagetable_t kernel_pagetable;
 static struct limine_kernel_address_response kernel_address;
 
 /**
+ * The address which we start assigning new io memory map requests to.
+ * Increments with each IO memmap request.
+ * 
+ * This value looks like the next sector after the code of Limine
+ * thus I think it's safe to use it. Limine uses 0xffffffff80000000
+ * region.
+ */
+static uint64_t io_memmap_current_address = 0xfffffffff0000000;
+
+/**
  * Return the address of the PTE in page table pagetable that corresponds to
  * virtual address va. If alloc is true, create any required page-table pages.
  *
@@ -60,8 +70,8 @@ static struct limine_kernel_address_response kernel_address;
  *   12..20 -- 9 bits of level-1 index.
  *    0..11 -- 12 bits of byte offset within the page.
  */
-static struct pte_t *walk(pagetable_t pagetable, uint64_t va, bool alloc) {
-  if (va >= VA_MAX || va < VA_MIN)
+static struct pte_t *walk(pagetable_t pagetable, uint64_t va, bool alloc, bool io) {
+  if ((!io && va >= VA_MAX) || va < VA_MIN)
     panic("walk");
 
   for (int level = 3; level > 0; level--) {
@@ -147,6 +157,8 @@ uint64_t vmm_ring3init_frame(void) {
 int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
                   uint64_t pa, pte_permissions permissions) {
   // Sanity checks
+  if (pa % PAGE_SIZE != 0)
+    panic("vmm_map_pages: pa not aligned");
   if (va % PAGE_SIZE != 0)
     panic("vmm_map_pages: va not aligned");
   if (size % PAGE_SIZE != 0)
@@ -158,7 +170,7 @@ int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
   for (uint64_t i = 0; i < pages_to_map; i++) {
     const uint64_t current_va = va + i * PAGE_SIZE;
     const uint64_t current_pa = pa + i * PAGE_SIZE;
-    struct pte_t *pte = walk(pagetable, current_va, true);
+    struct pte_t *pte = walk(pagetable, current_va, true, false);
     if (pte == NULL)
       return -1;      // OOM
     if (pte->present) // this page already exists?
@@ -170,6 +182,42 @@ int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
     pte->address = PTE_GET_PHY_ADDRESS(current_pa);
   }
   return 0;
+}
+
+/**
+ * Maps a physical address which is used for IO.
+ * Returns the virtual address which the region is mapped to.
+ */
+void *vmm_io_memmap(uint64_t pa, uint64_t size) {
+  // Sanity checks
+  if (pa % PAGE_SIZE != 0)
+    panic("vmm_io_memmap: pa not aligned");
+  if (size % PAGE_SIZE != 0)
+    panic("vmm_io_memmap: size not aligned");
+  if (size == 0)
+    panic("vmm_io_memmap: size");
+  // Calculate the virtual address
+  uint64_t va =
+      __atomic_fetch_add(&io_memmap_current_address, size, __ATOMIC_RELAXED);
+  // Map each page individually
+  const uint64_t pages_to_map = size / PAGE_SIZE;
+  for (uint64_t i = 0; i < pages_to_map; i++) {
+    const uint64_t current_va = va + i * PAGE_SIZE;
+    const uint64_t current_pa = pa + i * PAGE_SIZE;
+    struct pte_t *pte = walk(kernel_pagetable, current_va, true, true);
+    if (pte == NULL)
+      return NULL;    // OOM
+    if (pte->present) // this page already exists?
+      panic("vmm_io_memmap: remap");
+    pte->present = 1; // make this page available
+    pte->rw = 1;      // IO pages are writable
+    pte->xd = 1;      // we should not execute from IO
+    pte->us = 0;      // no userspace
+    pte->pwt = 1;     // IO pages should not be cached
+    pte->pct = 1;     // Same thing
+    pte->address = PTE_GET_PHY_ADDRESS(current_pa);
+  }
+  return (void *)va;
 }
 
 /**
@@ -208,7 +256,8 @@ pagetable_t vmm_create_user_pagetable() {
       pagetable, INTSTACK_VIRTUAL_ADDRESS_BOTTOM, PAGE_SIZE, V2P(int_stack),
       (pte_permissions){.writable = 1, .executable = 0, .userspace = 0});
   vmm_map_pages(
-      pagetable, SYSCALLSTACK_VIRTUAL_ADDRESS_BOTTOM, PAGE_SIZE, V2P(syscall_stack),
+      pagetable, SYSCALLSTACK_VIRTUAL_ADDRESS_BOTTOM, PAGE_SIZE,
+      V2P(syscall_stack),
       (pte_permissions){.writable = 1, .executable = 0, .userspace = 0});
   // Done
   return pagetable;

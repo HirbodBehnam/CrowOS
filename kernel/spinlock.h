@@ -9,12 +9,5 @@ struct spinlock {
     uint32_t holding_cpu;
 };
 
-/**
- * Lock the spinlock and disable interrupts
- */
 void spinlock_lock(struct spinlock *lock);
-
-/**
- * Unlock the spinlock and restores the interrupt flags
- */
 void spinlock_unlock(struct spinlock *lock);
