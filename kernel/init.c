@@ -89,6 +89,7 @@ void kmain(void) {
 
   // Setup NVMe
   nvme_init();
+  kprintf("Initialized NVMe\n");
 
   // Setup the interrupt vector
   idt_init();

@@ -58,6 +58,9 @@ uint64_t pcie_get_nvme_base(void) {
   return 0;
 }
 
+/**
+ * Lists all PCIe devices
+ */
 void pcie_list(void) {
   kprintf("Attached PCIe devices:\n");
   for (uint8_t bus = 0; bus < 255; bus++) {
