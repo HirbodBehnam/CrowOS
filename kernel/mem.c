@@ -86,3 +86,19 @@ void *kalloc(void) {
   spinlock_unlock(&freepages_lock);
   return page;
 }
+
+/**
+ * Same as kalloc but writes all zero to the page
+ */
+void *kcalloc(void) {
+  spinlock_lock(&freepages_lock);
+  void *page = NULL;
+  if (freepages != NULL) { // OOM check
+    // Allocate one page
+    page = freepages;
+    freepages = freepages->next;
+    memset(page, 0, PAGE_SIZE);
+  }
+  spinlock_unlock(&freepages_lock);
+  return page;
+}

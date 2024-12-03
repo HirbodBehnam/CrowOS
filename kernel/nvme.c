@@ -16,6 +16,14 @@
  */
 static void *nvme_base;
 
+/**
+ * Next command ID which we will issue for the submission ID
+ */
+static uint16_t next_command_id = 0;
+// Gets the next command ID
+#define NEXT_COMMAND_ID()                                                      \
+  (__atomic_fetch_add(&next_command_id, 1, __ATOMIC_RELAXED))
+
 // Returns the addres of a 4 byte long register
 #define NVME_REG4(offset) (*((uint32_t volatile *)(nvme_base + offset)))
 // Returns the addres of a 8 byte long register
@@ -28,6 +36,16 @@ static void *nvme_base;
 #define NVME_PAGE_SIZE_BITS 12
 // Each page size of NVMe buffers
 #define NVME_PAGE_SIZE (1ULL < NVME_PAGE_SIZE_BITS)
+// Doorbell stride, bytes
+#define NVME_CAP_DSTRD(x)	(1 << (2 + (((x) >> 32) & 0xf)))
+
+/*
+ * These register offsets are defined as 0x1000 + (N * (DSTRD bytes))
+ * Get the doorbell stride bit shift value from the controller capabilities.
+ */
+#define NVME_SQTDBL_OFFSET(QID, DSTRD)	(0x1000 + ((2 * (QID)) * (DSTRD)))	/* Submission Queue y (NVM) Tail Doorbell */
+#define NVME_CQHDBL_OFFSET(QID, DSTRD)	(0x1000 + (((2 * (QID)) + 1) * (DSTRD)))	/* Completion Queue y (NVM) Head Doorbell */
+
 
 /* controller register offsets */
 #define NVME_CAP_OFFSET 0x0000   /* Controller Capabilities */
@@ -41,6 +59,10 @@ static void *nvme_base;
 #define NVME_ACQ_OFFSET 0x0030   /* Admin Completion Queue Base Address */
 #define NVME_SQ0_OFFSET 0x1000   /* Submission Queue 0 (admin) Tail Doorbell */
 #define NVME_CQ0_OFFSET 0x1004   /* Completion Queue 0 (admin) Head Doorbell */
+
+/* NVMe Admin Cmd Opcodes */
+#define NVME_ADMIN_SETFEATURES_OPC 9
+#define NVME_ADMIN_SETFEATURES_NUMQUEUES 7
 
 /* Submission Queue */
 typedef struct {
@@ -57,7 +79,7 @@ typedef struct {
   uint32_t cdw13;
   uint32_t cdw14;
   uint32_t cdw15;
-} NVME_SQ;
+} NVME_SQ_ENTRY;
 
 /* Completion Queue */
 typedef struct {
@@ -70,20 +92,29 @@ typedef struct {
 #define NVME_CQ_FLAGS_PHASE 0x1
 #define NVME_CQ_FLAGS_SC(x) (((x) & 0x1FE) >> 1)
 #define NVME_CQ_FLAGS_SCT(x) (((x) & 0xE00) >> 9)
-} NVME_CQ;
+} NVME_CQ_ENTRY;
+
+/**
+ * Declares a pair of submission and completion queue which are used
+ * in NVMe interface
+ */
+struct nvme_queue {
+  // The queue entries must be dword aligned. So we use kalloc
+  NVME_SQ_ENTRY *submission_queue;
+  // The queue entries must be dword aligned. So we use kalloc
+  NVME_CQ_ENTRY *completion_queue;
+  uint32_t submission_queue_doorbell;
+  uint32_t completion_queue_doorbell;
+  uint32_t queue_index;
+};
 
 /**
  * Data about the NVMe device attached to PCIe
  */
 static struct nvme_device {
-  // A pointer to the admin SQ. This must be page aligned
-  NVME_SQ *admin_submission_queue;
-  // A pointer to the admin CQ. This must be page aligned
-  NVME_CQ *admin_completion_queue;
-  // A pointer to the IO SQ. This must be page aligned
-  NVME_SQ *io_submission_queue;
-  // A pointer to the IO CQ. This must be page aligned
-  NVME_CQ *io_completion_queue;
+  uint64_t cap;
+  struct nvme_queue admin_queue;
+  struct nvme_queue io_queue;
 } nvme_device;
 
 /**
@@ -118,6 +149,42 @@ static void nvme_enable_device(void) {
   __sync_synchronize();
 }
 
+/*
+ * Submit and complete 1 command by polling CQ for phase change
+ * Rings SQ doorbell, polls waiting for completion, rings CQ doorbell
+ */
+static void nvme_do_one_cmd_synchronous(struct nvme_queue *queue) {
+  // Increment the submission queue tail
+  if (++(queue->submission_queue_doorbell) > (NVME_ADMIN_QUEUE_SIZE - 1))
+    queue->submission_queue_doorbell = 0;
+  // Ring the doorbell
+  // 0 is the index of the admin queue. It always is zero
+  NVME_REG4(NVME_SQTDBL_OFFSET(queue->queue_index, NVME_CAP_DSTRD(nvme_device.cap))) = queue->submission_queue_doorbell;
+  // Wait for the queue to complete
+  // TODO: DO THIS
+}
+
+/**
+ * Sets the number of IO queues
+ */
+static void nvme_set_queue_count(uint32_t queue_count) {
+  // Allocate a submission request from the queue
+  NVME_SQ_ENTRY *sq =
+      &nvme_device.admin_queue
+           .submission_queue[nvme_device.admin_queue.submission_queue_doorbell];
+  memset(sq, 0, sizeof(NVME_SQ_ENTRY));
+  // Set the information
+  sq->opc = NVME_ADMIN_SETFEATURES_OPC;
+  sq->cid = NEXT_COMMAND_ID();
+  sq->cdw10 = NVME_ADMIN_SETFEATURES_NUMQUEUES;
+  /* Count is a 0's based value, so subtract one */
+  queue_count--;
+  /* Set count number of IO SQs and CQs */
+  sq->cdw11 = queue_count;
+  sq->cdw11 |= (queue_count << 16);
+  nvme_do_one_cmd_synchronous(&nvme_device.admin_queue);
+}
+
 /**
  * Initialize NVMe driver
  *
@@ -132,18 +199,21 @@ void nvme_init(void) {
   if (nvme_base == NULL)
     panic("nvme: could not get NVMe base");
   // Read CAP register
-  uint64_t cap = NVME_REG8(NVME_CAP_OFFSET);
-  if (((cap >> 37) & 1) == 0) // CSS
+  nvme_device.cap = NVME_REG8(NVME_CAP_OFFSET);
+  if (((nvme_device.cap >> 37) & 1) == 0) // CSS
     panic("nvme: NCSS not supported");
-  if ((12 + ((cap >> 48) & 0xf)) > NVME_PAGE_SIZE_BITS) // MPSMIN
+  if ((12 + ((nvme_device.cap >> 48) & 0xf)) > NVME_PAGE_SIZE_BITS) // MPSMIN
     panic("nvme: Driver does not support 4kb pages");
-  if ((cap & 0xffff) < NVME_IO_QUEUE_SIZE) // MQES
+  if ((nvme_device.cap & 0xffff) < NVME_IO_QUEUE_SIZE) // MQES
     panic("nvme: Small queue size");
   // Allocate the Queues
-  nvme_device.admin_submission_queue = kalloc();
-  nvme_device.admin_completion_queue = kalloc();
-  nvme_device.io_submission_queue = kalloc();
-  nvme_device.io_completion_queue = kalloc();
+  nvme_device.admin_queue.submission_queue = kcalloc();
+  nvme_device.admin_queue.completion_queue = kcalloc();
+  nvme_device.io_queue.submission_queue = kcalloc();
+  nvme_device.io_queue.completion_queue = kcalloc();
+  // Set queue index
+  nvme_device.admin_queue.queue_index = 0;
+  nvme_device.io_queue.queue_index = 1;
   // Disable the device to set the control registers
   nvme_disable_device();
   // Set admin queue attributes
@@ -152,8 +222,8 @@ void nvme_init(void) {
   const uint32_t aqa =
       (NVME_ADMIN_QUEUE_SIZE - 1) | ((NVME_ADMIN_QUEUE_SIZE - 1) << 16);
   NVME_REG4(NVME_AQA_OFFSET) = aqa;
-  NVME_REG8(NVME_ASQ_OFFSET) = V2P(nvme_device.admin_submission_queue);
-  NVME_REG8(NVME_ACQ_OFFSET) = V2P(nvme_device.admin_completion_queue);
+  NVME_REG8(NVME_ASQ_OFFSET) = V2P(nvme_device.admin_queue.submission_queue);
+  NVME_REG8(NVME_ACQ_OFFSET) = V2P(nvme_device.admin_queue.completion_queue);
   // Enable the device because we have set the stuff we need
   nvme_enable_device();
 }
