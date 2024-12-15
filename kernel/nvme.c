@@ -234,8 +234,11 @@ static void nvme_set_queue_count(uint32_t queue_count) {
 void nvme_init(void) {
   // Get the base of NVMe registers
   uint64_t nvme_base_physical = pcie_get_nvme_base();
-  // Map for IO based region
-  nvme_base = vmm_io_memmap(nvme_base_physical, 0x1000);
+  // Map for IO based region.
+  // 0x2000 is the minimum number of bytes we need for driver.
+  // First 0x1000 bytes are control registers and next 0x1000
+  // bytes are the queue control registers (doorbells).
+  nvme_base = vmm_io_memmap(nvme_base_physical, 0x2000);
   if (nvme_base == NULL)
     panic("nvme: could not get NVMe base");
   // Read CAP register
