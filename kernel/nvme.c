@@ -66,6 +66,15 @@ static uint16_t next_command_id = 0;
 #define NVME_CQ0_OFFSET 0x1004   /* Completion Queue 0 (admin) Head Doorbell */
 
 /* NVMe Admin Cmd Opcodes */
+#define NVME_ADMIN_CRIOSQ_OPC	1
+#define NVME_ADMIN_CRIOSQ_QID(x)	(x)
+#define NVME_ADMIN_CRIOSQ_QSIZE(x)	(((x)-1) << 16)
+#define NVME_ADMIN_CRIOSQ_CQID(x)	((x) << 16)
+
+#define NVME_ADMIN_CRIOCQ_OPC	5
+#define NVME_ADMIN_CRIOCQ_QID(x)	(x)
+#define NVME_ADMIN_CRIOCQ_QSIZE(x)	(((x)-1) << 16)
+
 #define NVME_ADMIN_SETFEATURES_OPC 9
 #define NVME_ADMIN_SETFEATURES_NUMQUEUES 7
 
@@ -205,23 +214,51 @@ static void nvme_do_one_cmd_synchronous(struct nvme_queue *queue) {
 }
 
 /**
- * Sets the number of IO queues
+ * Create the IO queue that gets read/write commands.
  */
-static void nvme_set_queue_count(uint32_t queue_count) {
+static void nvme_create_io_queue(void) {
+  volatile NVME_SQ_ENTRY *sq;
+  // At first tell the NVMe that we are only using one queue
   // Allocate a submission request from the queue
-  volatile NVME_SQ_ENTRY *sq =
-      &nvme_device.admin_queue
-           .submission_queue[nvme_device.admin_queue.submission_queue_tail];
+  sq = &nvme_device.admin_queue
+            .submission_queue[nvme_device.admin_queue.submission_queue_tail];
   memset((void *)sq, 0, sizeof(NVME_SQ_ENTRY));
   // Set the information
   sq->opc = NVME_ADMIN_SETFEATURES_OPC;
   sq->cid = NEXT_COMMAND_ID();
   sq->cdw10 = NVME_ADMIN_SETFEATURES_NUMQUEUES;
-  /* Count is a 0's based value, so subtract one */
-  queue_count--;
   /* Set count number of IO SQs and CQs */
+  const uint32_t queue_count = 0; // count is zero based
   sq->cdw11 = queue_count;
   sq->cdw11 |= (queue_count << 16);
+  // Submit and wait
+  nvme_do_one_cmd_synchronous(&nvme_device.admin_queue);
+  // Now create a completion queue
+  sq = &nvme_device.admin_queue
+            .submission_queue[nvme_device.admin_queue.submission_queue_tail];
+  memset((void *)sq, 0, sizeof(NVME_SQ_ENTRY));
+  // Set the information
+  sq->opc = NVME_ADMIN_CRIOSQ_OPC;
+	sq->cid = NEXT_COMMAND_ID();
+	sq->prp[0] = V2P(nvme_device.io_queue.submission_queue);
+	sq->cdw11 = 1; // Set physically contiguous (PC) bit
+	sq->cdw10 |= NVME_ADMIN_CRIOCQ_QID(nvme_device.io_queue.queue_index);
+	sq->cdw10 |= NVME_ADMIN_CRIOCQ_QSIZE(NVME_IO_QUEUE_SIZE);
+  // Submit and wait
+  nvme_do_one_cmd_synchronous(&nvme_device.admin_queue);
+  // Next, create a submission queue
+  sq = &nvme_device.admin_queue
+            .submission_queue[nvme_device.admin_queue.submission_queue_tail];
+  memset((void *)sq, 0, sizeof(NVME_SQ_ENTRY));
+  // Set the information
+  sq->opc = NVME_ADMIN_CRIOCQ_OPC;
+	sq->cid = NEXT_COMMAND_ID();
+	sq->prp[0] = V2P(nvme_device.io_queue.completion_queue);
+	sq->cdw11 = 1; // Set physically contiguous (PC) bit
+	sq->cdw11 |= NVME_ADMIN_CRIOSQ_CQID(nvme_device.io_queue.queue_index);
+	sq->cdw10 |= NVME_ADMIN_CRIOSQ_QID(nvme_device.io_queue.queue_index);
+	sq->cdw10 |= NVME_ADMIN_CRIOSQ_QSIZE(NVME_IO_QUEUE_SIZE);
+  // Submit and wait
   nvme_do_one_cmd_synchronous(&nvme_device.admin_queue);
 }
 
@@ -273,6 +310,6 @@ void nvme_init(void) {
   NVME_REG8(NVME_ACQ_OFFSET) = V2P(nvme_device.admin_queue.completion_queue);
   // Enable the device because we have set the stuff we need
   nvme_enable_device();
-  // Set the IO queue count
-  nvme_set_queue_count(1);
+  // Create the IO queue
+  nvme_create_io_queue();
 }
