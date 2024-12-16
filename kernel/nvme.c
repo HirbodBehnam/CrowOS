@@ -37,9 +37,11 @@ static uint16_t next_command_id = 0;
 // Each page size is 2^(this_value)
 #define NVME_PAGE_SIZE_BITS 12
 // Each page size of NVMe buffers
-#define NVME_PAGE_SIZE (1ULL < NVME_PAGE_SIZE_BITS)
+#define NVME_PAGE_SIZE (1ULL << NVME_PAGE_SIZE_BITS)
 // Doorbell stride, bytes
 #define NVME_CAP_DSTRD(x) (1 << (2 + (((x) >> 32) & 0xf)))
+// We default to the first namespace of each device
+#define NVME_NAMESPACE_INDEX 1
 
 /*
  * These register offsets are defined as 0x1000 + (N * (DSTRD bytes))
@@ -66,17 +68,20 @@ static uint16_t next_command_id = 0;
 #define NVME_CQ0_OFFSET 0x1004   /* Completion Queue 0 (admin) Head Doorbell */
 
 /* NVMe Admin Cmd Opcodes */
-#define NVME_ADMIN_CRIOSQ_OPC	1
-#define NVME_ADMIN_CRIOSQ_QID(x)	(x)
-#define NVME_ADMIN_CRIOSQ_QSIZE(x)	(((x)-1) << 16)
-#define NVME_ADMIN_CRIOSQ_CQID(x)	((x) << 16)
+#define NVME_ADMIN_CRIOSQ_OPC 1
+#define NVME_ADMIN_CRIOSQ_QID(x) (x)
+#define NVME_ADMIN_CRIOSQ_QSIZE(x) (((x) - 1) << 16)
+#define NVME_ADMIN_CRIOSQ_CQID(x) ((x) << 16)
 
-#define NVME_ADMIN_CRIOCQ_OPC	5
-#define NVME_ADMIN_CRIOCQ_QID(x)	(x)
-#define NVME_ADMIN_CRIOCQ_QSIZE(x)	(((x)-1) << 16)
+#define NVME_ADMIN_CRIOCQ_OPC 5
+#define NVME_ADMIN_CRIOCQ_QID(x) (x)
+#define NVME_ADMIN_CRIOCQ_QSIZE(x) (((x) - 1) << 16)
 
 #define NVME_ADMIN_SETFEATURES_OPC 9
 #define NVME_ADMIN_SETFEATURES_NUMQUEUES 7
+
+#define NVME_ADMIN_IDENTIFY_OPC 6
+#define NVME_ID_CNS_NS_IDENTIFY 0 // CNS for namespace identify
 
 /* Submission Queue */
 typedef struct {
@@ -108,6 +113,32 @@ typedef struct {
 #define NVME_CQ_FLAGS_SCT(x) (((x) & 0xE00) >> 9)
 } NVME_CQ_ENTRY;
 
+typedef struct {
+  uint16_t ms;   /* Metadata Size */
+  uint8_t lbads; /* LBA Data Size */
+  uint8_t rp;    /* Relative Performance */
+} NVME_LBAFORMAT;
+
+/* Identify Namespace Data, Figure 114 of Command Set Specification */
+typedef struct {
+  uint64_t nsze;     /* Namespace Size (total blocks in fm'd namespace) */
+  uint64_t ncap;     /* Namespace Capacity (max number of logical blocks) */
+  uint64_t nuse;     /* Namespace Utilization */
+  uint8_t nsfeat;    /* Namespace Features */
+  uint8_t nlbaf;     /* Number of LBA Formats */
+  uint8_t flbas;     /* Formatted LBA size */
+  uint8_t mc;        /* Metadata Capabilities */
+  uint8_t dpc;       /* End-to-end Data Protection capabilities */
+  uint8_t dps;       /* End-to-end Data Protection Type Settings */
+  uint8_t nmic;      /* Namespace Multi-path I/O + NS Sharing Caps */
+  uint8_t rescap;    /* Reservation Capabilities */
+  uint8_t rsvd1[88]; /* Reserved as of Nvm Express 1.1 Spec */
+  uint64_t eui64;    /* IEEE Extended Unique Identifier */
+  NVME_LBAFORMAT lba_format[16];
+  uint8_t rsvd2[192];        /* Reserved as of Nvm Express 1.1 Spec */
+  uint8_t vendor_data[3712]; /* Vendor specific data */
+} NVME_ADMIN_NAMESPACE_DATA;
+
 /**
  * Declares a pair of submission and completion queue which are used
  * in NVMe interface
@@ -131,9 +162,12 @@ struct nvme_queue {
  * Data about the NVMe device attached to PCIe
  */
 static struct nvme_device {
+  // Cached CAP register
   uint64_t cap;
   struct nvme_queue admin_queue;
   struct nvme_queue io_queue;
+  uint64_t total_blocks;
+  uint32_t block_size;
 } nvme_device;
 
 /**
@@ -239,11 +273,11 @@ static void nvme_create_io_queue(void) {
   memset((void *)sq, 0, sizeof(NVME_SQ_ENTRY));
   // Set the information
   sq->opc = NVME_ADMIN_CRIOSQ_OPC;
-	sq->cid = NEXT_COMMAND_ID();
-	sq->prp[0] = V2P(nvme_device.io_queue.submission_queue);
-	sq->cdw11 = 1; // Set physically contiguous (PC) bit
-	sq->cdw10 |= NVME_ADMIN_CRIOCQ_QID(nvme_device.io_queue.queue_index);
-	sq->cdw10 |= NVME_ADMIN_CRIOCQ_QSIZE(NVME_IO_QUEUE_SIZE);
+  sq->cid = NEXT_COMMAND_ID();
+  sq->prp[0] = V2P(nvme_device.io_queue.submission_queue);
+  sq->cdw11 = 1; // Set physically contiguous (PC) bit
+  sq->cdw10 |= NVME_ADMIN_CRIOCQ_QID(nvme_device.io_queue.queue_index);
+  sq->cdw10 |= NVME_ADMIN_CRIOCQ_QSIZE(NVME_IO_QUEUE_SIZE);
   // Submit and wait
   nvme_do_one_cmd_synchronous(&nvme_device.admin_queue);
   // Next, create a submission queue
@@ -252,14 +286,47 @@ static void nvme_create_io_queue(void) {
   memset((void *)sq, 0, sizeof(NVME_SQ_ENTRY));
   // Set the information
   sq->opc = NVME_ADMIN_CRIOCQ_OPC;
-	sq->cid = NEXT_COMMAND_ID();
-	sq->prp[0] = V2P(nvme_device.io_queue.completion_queue);
-	sq->cdw11 = 1; // Set physically contiguous (PC) bit
-	sq->cdw11 |= NVME_ADMIN_CRIOSQ_CQID(nvme_device.io_queue.queue_index);
-	sq->cdw10 |= NVME_ADMIN_CRIOSQ_QID(nvme_device.io_queue.queue_index);
-	sq->cdw10 |= NVME_ADMIN_CRIOSQ_QSIZE(NVME_IO_QUEUE_SIZE);
+  sq->cid = NEXT_COMMAND_ID();
+  sq->prp[0] = V2P(nvme_device.io_queue.completion_queue);
+  sq->cdw11 = 1; // Set physically contiguous (PC) bit
+  sq->cdw11 |= NVME_ADMIN_CRIOSQ_CQID(nvme_device.io_queue.queue_index);
+  sq->cdw10 |= NVME_ADMIN_CRIOSQ_QID(nvme_device.io_queue.queue_index);
+  sq->cdw10 |= NVME_ADMIN_CRIOSQ_QSIZE(NVME_IO_QUEUE_SIZE);
   // Submit and wait
   nvme_do_one_cmd_synchronous(&nvme_device.admin_queue);
+}
+
+/**
+ * We currently only support NVMes with one namespace. Most of stock NVMe
+ * devices on market only have one namespace.
+ * Also, NVMes must have at least one namespace right? So the first one
+ * is only mounted here.
+ */
+static void nvme_setup_namespaces(void) {
+  NVME_ADMIN_NAMESPACE_DATA *namespace_data = kalloc();
+  if (namespace_data == NULL)
+    panic("nvme: nvme_identify_namespaces: OOM");
+  // At first tell the NVMe that we are only using one queue
+  // Allocate a submission request from the queue
+  volatile NVME_SQ_ENTRY *sq =
+      &nvme_device.admin_queue
+           .submission_queue[nvme_device.admin_queue.submission_queue_tail];
+  memset((void *)sq, 0, sizeof(NVME_SQ_ENTRY));
+  sq->opc = NVME_ADMIN_IDENTIFY_OPC;
+  sq->cid = NEXT_COMMAND_ID();
+  sq->cdw10 = NVME_ID_CNS_NS_IDENTIFY;
+  sq->nsid = NVME_NAMESPACE_INDEX;
+  /* Active namespaces list is 4Kb in size. Fits in 1 aligned PAGE */
+  sq->prp[0] = V2P(namespace_data);
+  nvme_do_one_cmd_synchronous(&nvme_device.admin_queue);
+  // Find the block size
+  nvme_device.block_size =
+      2 << (namespace_data->lba_format[namespace_data->flbas & 0xF].lbads - 1);
+  nvme_device.total_blocks = namespace_data->nsze;
+  kprintf("Detected NVMe with %llu bytes in size\n",
+          nvme_device.block_size * nvme_device.total_blocks);
+  // Clean up
+  kfree(namespace_data);
 }
 
 /**
@@ -291,6 +358,11 @@ void nvme_init(void) {
   nvme_device.admin_queue.completion_queue = kcalloc();
   nvme_device.io_queue.submission_queue = kcalloc();
   nvme_device.io_queue.completion_queue = kcalloc();
+  if (nvme_device.admin_queue.submission_queue == NULL ||
+      nvme_device.admin_queue.completion_queue == NULL ||
+      nvme_device.io_queue.submission_queue == NULL ||
+      nvme_device.io_queue.completion_queue == NULL)
+    panic("nvme: queue allocation failed: OOM");
   // Set queue index
   nvme_device.admin_queue.queue_index = 0;
   nvme_device.io_queue.queue_index = 1;
@@ -312,4 +384,6 @@ void nvme_init(void) {
   nvme_enable_device();
   // Create the IO queue
   nvme_create_io_queue();
+  // Find the namespaces and save them
+  nvme_setup_namespaces();
 }
