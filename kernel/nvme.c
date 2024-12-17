@@ -33,7 +33,7 @@ static uint16_t next_command_id = 0;
 // Queue size for admin SQ and CQ
 #define NVME_ADMIN_QUEUE_SIZE 2
 // Queue size for IO SQ and CQ
-#define NVME_IO_QUEUE_SIZE 8
+#define NVME_IO_QUEUE_SIZE 16
 // Each page size is 2^(this_value)
 #define NVME_PAGE_SIZE_BITS 12
 // Each page size of NVMe buffers
@@ -82,6 +82,10 @@ static uint16_t next_command_id = 0;
 
 #define NVME_ADMIN_IDENTIFY_OPC 6
 #define NVME_ID_CNS_NS_IDENTIFY 0 // CNS for namespace identify
+
+/* IO command list */
+#define NVME_IO_WRITE_OPC 1
+#define NVME_IO_READ_OPC 2
 
 /* Submission Queue */
 typedef struct {
@@ -216,6 +220,7 @@ static void nvme_do_one_cmd_synchronous(struct nvme_queue *queue) {
   NVME_REG4(
       NVME_SQTDBL_OFFSET(queue->queue_index, NVME_CAP_DSTRD(nvme_device.cap))) =
       queue->submission_queue_tail;
+
   // Wait for the queue to complete
   // See how many commands are left
   uint32_t left_commands;
@@ -267,14 +272,14 @@ static void nvme_create_io_queue(void) {
   sq->cdw11 |= (queue_count << 16);
   // Submit and wait
   nvme_do_one_cmd_synchronous(&nvme_device.admin_queue);
-  // Now create a completion queue
+  // Now, create a completion queue
   sq = &nvme_device.admin_queue
             .submission_queue[nvme_device.admin_queue.submission_queue_tail];
   memset((void *)sq, 0, sizeof(NVME_SQ_ENTRY));
   // Set the information
-  sq->opc = NVME_ADMIN_CRIOSQ_OPC;
+  sq->opc = NVME_ADMIN_CRIOCQ_OPC;
   sq->cid = NEXT_COMMAND_ID();
-  sq->prp[0] = V2P(nvme_device.io_queue.submission_queue);
+  sq->prp[0] = V2P(nvme_device.io_queue.completion_queue);
   sq->cdw11 = 1; // Set physically contiguous (PC) bit
   sq->cdw10 |= NVME_ADMIN_CRIOCQ_QID(nvme_device.io_queue.queue_index);
   sq->cdw10 |= NVME_ADMIN_CRIOCQ_QSIZE(NVME_IO_QUEUE_SIZE);
@@ -285,9 +290,9 @@ static void nvme_create_io_queue(void) {
             .submission_queue[nvme_device.admin_queue.submission_queue_tail];
   memset((void *)sq, 0, sizeof(NVME_SQ_ENTRY));
   // Set the information
-  sq->opc = NVME_ADMIN_CRIOCQ_OPC;
+  sq->opc = NVME_ADMIN_CRIOSQ_OPC;
   sq->cid = NEXT_COMMAND_ID();
-  sq->prp[0] = V2P(nvme_device.io_queue.completion_queue);
+  sq->prp[0] = V2P(nvme_device.io_queue.submission_queue);
   sq->cdw11 = 1; // Set physically contiguous (PC) bit
   sq->cdw11 |= NVME_ADMIN_CRIOSQ_CQID(nvme_device.io_queue.queue_index);
   sq->cdw10 |= NVME_ADMIN_CRIOSQ_QID(nvme_device.io_queue.queue_index);
@@ -330,6 +335,85 @@ static void nvme_setup_namespaces(void) {
 }
 
 /**
+ * Write some blocks in the NVMe device.
+ * lba is the starting logical block of the device.
+ * block_count is the number of blocks to write.
+ * buffer is the buffer which the data exists in.
+ *
+ * The size of buffer must be block_count * nvme_device.block_size bytes.
+ */
+void nvme_write(uint64_t lba, uint32_t block_count, const char *buffer) {
+  // Writes should be at most one memory page
+  if (block_count * nvme_device.block_size > PAGE_SIZE)
+    panic("nvme: huge write");
+  // Because the block count is set in a way that the write
+  // size is at last a page, we can do this in one command.
+  // Also because I really don't care about the speed and stuff,
+  // I'll allocate a frame in memory and pass that to the NVMe
+  // instead of passing the buffer. Passing the buffer would have
+  // been VERY cool because that is basically zero copy. But now,
+  // I need to copy at last one page.
+  char *aligned_buffer = kalloc();
+  memcpy(aligned_buffer, buffer, block_count * nvme_device.block_size);
+  // Allocate a submission request from the queue
+  volatile NVME_SQ_ENTRY *sq =
+      &nvme_device.io_queue
+           .submission_queue[nvme_device.io_queue.submission_queue_tail];
+  memset((void *)sq, 0, sizeof(NVME_SQ_ENTRY));
+  sq->opc = NVME_IO_WRITE_OPC;
+  sq->cid = NEXT_COMMAND_ID();
+  sq->nsid = NVME_NAMESPACE_INDEX;
+  sq->cdw10 = lba;
+  sq->cdw11 = (lba >> 32);
+  sq->cdw12 = (block_count - 1) & 0xFFFF;
+  sq->prp[0] = V2P(aligned_buffer);
+  // Submit and wait
+  nvme_do_one_cmd_synchronous(&nvme_device.io_queue);
+  // Cleanup
+  kfree(aligned_buffer);
+}
+
+/**
+ * Read some blocks from the NVMe device
+ * lba is the starting logical block of the device.
+ * block_count is the number of blocks to write.
+ * buffer is the buffer which the data exists in.
+ *
+ * The size of buffer must be block_count * nvme_device.block_size bytes.
+ */
+void nvme_read(uint64_t lba, uint32_t block_count, char *buffer) {
+  // Writes should be at most one memory page
+  if (block_count * nvme_device.block_size > PAGE_SIZE)
+    panic("nvme: huge write");
+    // Because the block count is set in a way that the write
+  // size is at last a page, we can do this in one command.
+  // Also because I really don't care about the speed and stuff,
+  // I'll allocate a frame in memory and pass that to the NVMe
+  // instead of passing the buffer. Passing the buffer would have
+  // been VERY cool because that is basically zero copy. But now,
+  // I need to copy at last one page.
+  char *aligned_buffer = kalloc();
+  // Allocate a submission request from the queue
+  volatile NVME_SQ_ENTRY *sq =
+      &nvme_device.io_queue
+           .submission_queue[nvme_device.io_queue.submission_queue_tail];
+  memset((void *)sq, 0, sizeof(NVME_SQ_ENTRY));
+  sq->opc = NVME_IO_READ_OPC;
+  sq->cid = NEXT_COMMAND_ID();
+  sq->nsid = NVME_NAMESPACE_INDEX;
+  sq->cdw10 = lba;
+  sq->cdw11 = (lba >> 32);
+  sq->cdw12 = block_count - 1;
+  sq->prp[0] = V2P(aligned_buffer);
+  // Submit and wait
+  nvme_do_one_cmd_synchronous(&nvme_device.io_queue);
+  // Read back data
+  memcpy(buffer, aligned_buffer, block_count * nvme_device.block_size);
+  // Cleanup
+  kfree(aligned_buffer);
+}
+
+/**
  * Initialize NVMe driver
  *
  * Under the hood, it looks for NVMe devices attached to PCIe,
@@ -364,8 +448,8 @@ void nvme_init(void) {
       nvme_device.io_queue.completion_queue == NULL)
     panic("nvme: queue allocation failed: OOM");
   // Set queue index
-  nvme_device.admin_queue.queue_index = 0;
-  nvme_device.io_queue.queue_index = 1;
+  nvme_device.admin_queue.queue_index = 0; // admin queue must be zero
+  nvme_device.io_queue.queue_index = 1; // IO queues start from 1
   nvme_device.admin_queue.queue_size = NVME_ADMIN_QUEUE_SIZE;
   nvme_device.io_queue.queue_size = NVME_IO_QUEUE_SIZE;
   nvme_device.admin_queue.completion_queue_current_phase = 0;

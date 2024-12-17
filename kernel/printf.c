@@ -111,6 +111,15 @@ int kprintf(const char *fmt, ...) {
   return 0;
 }
 
+void khexdump(const char *buf, size_t size) {
+  for (size_t i = 0; i < size; i++) {
+    uint8_t data = buf[i];
+    serial_putc(digits[(data >> 4) & 0xF]);
+    serial_putc(digits[data & 0xF]);
+  }
+  serial_putc('\n');
+}
+
 void panic(const char *s) {
   cli();
   kprintf("panic: %s\n", s);

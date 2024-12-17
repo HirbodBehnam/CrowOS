@@ -78,7 +78,7 @@ QEMU=qemu-system-x86_64
 QEMUOPT = -M q35 -smp 1 -m 128M -bios /usr/share/ovmf/OVMF.fd
 QEMUOPT += -serial mon:stdio
 QEMUOPT += -monitor telnet:127.0.0.1:38592,server,nowait
-QEMUOPT += -drive file=boot/disk.img,if=none,id=nvm -device nvme,serial=deadbeef,drive=nvm
+QEMUOPT += -drive file=boot/disk.img,if=none,id=nvm,format=raw -device nvme,serial=deadbeef,drive=nvm
 #QEMUOPT += -d int,cpu_reset
 
 .PHONY: qemu
