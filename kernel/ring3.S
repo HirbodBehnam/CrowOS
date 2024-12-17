@@ -58,3 +58,5 @@ ring3_init:
     int 0x80
     nop
     jmp ring3_init
+
+.section .note.GNU-stack

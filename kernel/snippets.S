@@ -48,3 +48,5 @@ context_switch:
     pop rbp
     pop rbx
     ret
+
+.section .note.GNU-stack

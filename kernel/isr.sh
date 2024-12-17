@@ -31,3 +31,4 @@ echo "irq_vec:"
 for irq in {0..255}; do
 	echo "  .quad irq$irq"
 done
+echo ".section .note.GNU-stack"

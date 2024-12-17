@@ -82,3 +82,5 @@ syscall_handler_asm:
 	pop rcx
 	pop rsp
 	sysretq
+
+.section .note.GNU-stack
