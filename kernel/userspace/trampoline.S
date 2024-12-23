@@ -1,5 +1,5 @@
-#include "gdt.h"
-#include "vmm.h"
+#include "cpu/gdt.h"
+#include "mem/vmm.h"
 
 .section .text
 .intel_syntax noprefix
@@ -15,7 +15,7 @@ interrupt_handler_asm:
 	push r9
 	push r10
 	push r11
-	# Save the segment registers. To do so, we can simply save GS segment regsiter
+	# Save the segment registers. To do so, we can simply save GS segment register
 	# with a push gs instruction. The reason is that all of the segment registers
 	# are the same in our OS and also in x86_64 push gs is a valid instruction
 	# unlike push ds or such.

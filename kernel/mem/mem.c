@@ -1,7 +1,7 @@
 #include "mem.h"
-#include "lib.h"
-#include "spinlock.h"
-#include "printf.h"
+#include "common/lib.h"
+#include "common/spinlock.h"
+#include "common/printf.h"
 
 /**
  * The HHDM offset which current Limine works with

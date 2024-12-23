@@ -1,7 +1,7 @@
 #include "vmm.h"
-#include "asm.h"
-#include "lib.h"
-#include "printf.h"
+#include "common/lib.h"
+#include "common/printf.h"
+#include "cpu/asm.h"
 
 /**
  * From a virtual address, get the index of PTE entry based on the level
@@ -48,7 +48,7 @@ static struct limine_kernel_address_response kernel_address;
 /**
  * The address which we start assigning new io memory map requests to.
  * Increments with each IO memmap request.
- * 
+ *
  * This value looks like the next sector after the code of Limine
  * thus I think it's safe to use it. Limine uses 0xffffffff80000000
  * region.
@@ -70,7 +70,8 @@ static uint64_t io_memmap_current_address = 0xfffffffff0000000;
  *   12..20 -- 9 bits of level-1 index.
  *    0..11 -- 12 bits of byte offset within the page.
  */
-static struct pte_t *walk(pagetable_t pagetable, uint64_t va, bool alloc, bool io) {
+static struct pte_t *walk(pagetable_t pagetable, uint64_t va, bool alloc,
+                          bool io) {
   if ((!io && va >= VA_MAX) || va < VA_MIN)
     panic("walk");
 

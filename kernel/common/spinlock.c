@@ -1,8 +1,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "asm.h"
-#include "smp.h"
+#include "cpu/asm.h"
+#include "cpu/smp.h"
 #include "spinlock.h"
 #include "printf.h"
 

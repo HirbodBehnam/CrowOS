@@ -1,18 +1,18 @@
-#include "asm.h"
-#include "gdt.h"
-#include "idt.h"
-#include "lib.h"
+#include "common/lib.h"
+#include "common/printf.h"
+#include "cpu/asm.h"
+#include "cpu/gdt.h"
+#include "cpu/idt.h"
+#include "cpu/smp.h"
+#include "device/nvme.h"
+#include "device/pcie.h"
+#include "device/pic.h"
+#include "device/serial_port.h"
 #include "limine.h"
-#include "mem.h"
-#include "nvme.h"
-#include "pcie.h"
-#include "pic.h"
-#include "printf.h"
-#include "proc.h"
-#include "serial_port.h"
-#include "smp.h"
-#include "syscall.h"
-#include "vmm.h"
+#include "mem/mem.h"
+#include "mem/vmm.h"
+#include "userspace/proc.h"
+#include "userspace/syscall.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -104,7 +104,7 @@ void kmain(void) {
   // Load the IDT and enable interrupts on each core
   idt_load();
   sti();
-  
+
   // Initialize syscall on each core
   syscall_init();
 

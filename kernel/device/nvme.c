@@ -4,11 +4,11 @@
  */
 
 #include "nvme.h"
-#include "lib.h"
-#include "mem.h"
+#include "common/lib.h"
+#include "common/printf.h"
+#include "mem/mem.h"
+#include "mem/vmm.h"
 #include "pcie.h"
-#include "printf.h"
-#include "vmm.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -385,7 +385,7 @@ void nvme_read(uint64_t lba, uint32_t block_count, char *buffer) {
   // Writes should be at most one memory page
   if (block_count * nvme_device.block_size > PAGE_SIZE)
     panic("nvme: huge write");
-    // Because the block count is set in a way that the write
+  // Because the block count is set in a way that the write
   // size is at last a page, we can do this in one command.
   // Also because I really don't care about the speed and stuff,
   // I'll allocate a frame in memory and pass that to the NVMe
@@ -449,7 +449,7 @@ void nvme_init(void) {
     panic("nvme: queue allocation failed: OOM");
   // Set queue index
   nvme_device.admin_queue.queue_index = 0; // admin queue must be zero
-  nvme_device.io_queue.queue_index = 1; // IO queues start from 1
+  nvme_device.io_queue.queue_index = 1;    // IO queues start from 1
   nvme_device.admin_queue.queue_size = NVME_ADMIN_QUEUE_SIZE;
   nvme_device.io_queue.queue_size = NVME_IO_QUEUE_SIZE;
   nvme_device.admin_queue.completion_queue_current_phase = 0;

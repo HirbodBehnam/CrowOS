@@ -3,13 +3,13 @@
  * https://github.com/mit-pdos/xv6-riscv/blob/de247db5e6384b138f270e0a7c745989b5a9c23b/kernel/printf.c#L26C1-L51C1
  */
 
+#include "printf.h"
+#include "cpu/asm.h"
+#include "device/serial_port.h"
+#include "spinlock.h"
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
-#include "printf.h"
-#include "asm.h"
-#include "serial_port.h"
-#include "spinlock.h"
 
 static struct spinlock print_lock;
 

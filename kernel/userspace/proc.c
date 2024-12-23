@@ -1,7 +1,7 @@
 #include "proc.h"
-#include "asm.h"
-#include "printf.h"
-#include "smp.h"
+#include "common/printf.h"
+#include "cpu/smp.h"
+#include "cpu/asm.h"
 
 /**
  * The kernel stackpointer which we used just before we have switched to

@@ -1,6 +1,6 @@
 #include "syscall.h"
-#include "asm.h"
-#include "gdt.h"
+#include "cpu/asm.h"
+#include "cpu/gdt.h"
 
 #define IA32_EFER 0xC0000080
 #define IA32_STAR 0xC0000081

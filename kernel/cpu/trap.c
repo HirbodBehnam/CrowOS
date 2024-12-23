@@ -1,7 +1,7 @@
-#include "proc.h"
-#include "printf.h"
-#include "serial_port.h"
+#include "common/printf.h"
+#include "device/serial_port.h"
 #include "traps.h"
+#include "userspace/proc.h"
 #include <stddef.h>
 #include <stdint.h>
 

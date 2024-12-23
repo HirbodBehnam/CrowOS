@@ -1,5 +1,5 @@
-#include "gdt.h"
-#include "vmm.h"
+#include "cpu/gdt.h"
+#include "mem/vmm.h"
 
 .section .text
 .intel_syntax noprefix

@@ -1,6 +1,6 @@
 #include "gdt.h"
-#include "mem.h"
-#include "vmm.h"
+#include "mem/mem.h"
+#include "mem/vmm.h"
 #include <stdint.h>
 
 /**

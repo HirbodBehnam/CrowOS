@@ -1,8 +1,8 @@
 // Mostly from https://wiki.osdev.org/Serial_Ports
 #include "serial_port.h"
-#include "asm.h"
-#include "pic.h"
-#include "traps.h"
+#include "cpu/asm.h"
+#include "cpu/traps.h"
+#include "device/pic.h"
 
 #define PORT 0x3f8 // COM1
 
@@ -38,9 +38,10 @@ int serial_init(void) {
 void serial_init_interrupt(void) {
   // Acknowledge pre-existing interrupt conditions;
   // enable interrupts.
-  inb(PORT + 2);             // Interrupt Identification Register
-  inb(PORT + 0);             // Get data if anything is there
-  ioapic_enable(IRQ_COM1, 0); // Tell IO APIC to get COM1 interrupts on core zero
+  inb(PORT + 2); // Interrupt Identification Register
+  inb(PORT + 0); // Get data if anything is there
+  ioapic_enable(IRQ_COM1,
+                0); // Tell IO APIC to get COM1 interrupts on core zero
 }
 
 /**

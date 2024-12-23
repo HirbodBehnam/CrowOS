@@ -1,8 +1,8 @@
 #include "pic.h"
-#include "asm.h"
-#include "mem.h"
-#include "smp.h"
-#include "traps.h"
+#include "cpu/asm.h"
+#include "cpu/smp.h"
+#include "cpu/traps.h"
+#include "mem/mem.h"
 
 #define IOAPIC 0xFEC00000 // Default physical address of IO APIC
 

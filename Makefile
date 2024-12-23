@@ -26,7 +26,10 @@ CFLAGS = -Wall \
 	-mno-red-zone \
 	-mcmodel=kernel \
 	-masm=intel
+CFLAGS += -Ikernel
 CFLAGS += -ggdb -gdwarf-2 -O0
+
+ASFLAGS = -Ikernel
 
 KLDFLAGS = -m elf_x86_64 \
 	-nostdlib \
@@ -35,31 +38,31 @@ KLDFLAGS = -m elf_x86_64 \
 
 # Kernel compiling
 OBJS=$K/init.o \
-	$K/lib.o \
-	$K/snippets.o \
-	$K/gdt.o \
-	$K/idt.o \
-	$K/serial_port.o \
-	$K/printf.o \
-	$K/mem.o \
-	$K/pic.o \
-	$K/ring3.o \
-	$K/vmm.o \
-	$K/proc.o \
-	$K/trampoline.o \
-	$K/trap.o \
-	$K/syscall.o \
-	$K/isr.o \
-	$K/spinlock.o \
-	$K/sleeplock.o \
-	$K/pcie.o \
-	$K/nvme.o \
+	$K/common/lib.o \
+	$K/common/printf.o \
+	$K/common/sleeplock.o \
+	$K/common/spinlock.o \
+	$K/cpu/gdt.o \
+	$K/cpu/idt.o \
+	$K/cpu/isr.o \
+	$K/cpu/trap.o \
+	$K/cpu/snippets.o \
+	$K/device/nvme.o \
+	$K/device/pcie.o \
+	$K/device/pic.o \
+	$K/device/serial_port.o \
+	$K/mem/mem.o \
+	$K/mem/vmm.o \
+	$K/userspace/ring3.o \
+	$K/userspace/proc.o \
+	$K/userspace/trampoline.o \
+	$K/userspace/syscall.o \
 
 $K/kernel: $(OBJS) $K/linker.ld
 	$(LD) $(KLDFLAGS) -T $K/linker.ld -o $K/kernel $(OBJS) 
 
-$K/isr.S: $K/isr.sh
-	./$K/isr.sh > $K/isr.S
+$K/cpu/isr.S: $K/cpu/isr.sh
+	./$K/cpu/isr.sh > $K/cpu/isr.S
 
 # Creating the bootable image
 boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI
@@ -101,4 +104,4 @@ qemu-kvm-gdb: boot/disk.img
 
 .PHONY: clean
 clean:
-	rm -f $K/kernel $K/*.o $K/isr.S boot/disk.img
+	rm -f $K/kernel $K/**/*.o $K/cpu/isr.S boot/disk.img
