@@ -1,0 +1,3 @@
+[submodule "kernel/CrowFS"]
+	path = kernel/CrowFS
+	url = https://github.com/HirbodBehnam/CrowFS

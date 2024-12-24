@@ -25,7 +25,9 @@ CFLAGS = -Wall \
 	-mno-sse2 \
 	-mno-red-zone \
 	-mcmodel=kernel \
-	-masm=intel
+	-masm=intel \
+	-D__CROWOS__ \
+
 CFLAGS += -Ikernel
 CFLAGS += -ggdb -gdwarf-2 -O0
 
@@ -57,6 +59,7 @@ OBJS=$K/init.o \
 	$K/userspace/proc.o \
 	$K/userspace/trampoline.o \
 	$K/userspace/syscall.o \
+	$K/CrowFS/crowfs.o \
 
 $K/kernel: $(OBJS) $K/linker.ld
 	$(LD) $(KLDFLAGS) -T $K/linker.ld -o $K/kernel $(OBJS) 
