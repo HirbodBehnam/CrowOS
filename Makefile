@@ -1,6 +1,7 @@
 # We have to types of stuff: Kernel and user programs
 K=kernel
 U=user
+F=$K/CrowFS
 
 # Define the compilers
 CC = gcc
@@ -59,7 +60,7 @@ OBJS=$K/init.o \
 	$K/userspace/proc.o \
 	$K/userspace/trampoline.o \
 	$K/userspace/syscall.o \
-	$K/CrowFS/crowfs.o \
+	$F/crowfs.o \
 
 $K/kernel: $(OBJS) $K/linker.ld
 	$(LD) $(KLDFLAGS) -T $K/linker.ld -o $K/kernel $(OBJS) 
@@ -67,16 +68,27 @@ $K/kernel: $(OBJS) $K/linker.ld
 $K/cpu/isr.S: $K/cpu/isr.sh
 	./$K/cpu/isr.sh > $K/cpu/isr.S
 
+# Create the CrowFS interactor to create file system and manipulate
+# files via a command line
+$F/crowfs: $F/crowfs.c $F/main.c
+	gcc -O2 -o $F/crowfs $F/crowfs.c $F/main.c
+
 # Creating the bootable image
-boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI
+boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI $F/crowfs
+# Create the image
 	rm boot/disk.img || true
 	truncate -s 100M boot/disk.img
-	sgdisk boot/disk.img -n 1:2048 -t 1:ef00
+	sgdisk boot/disk.img -n 1:2048:133119 -t 1:ef00 -n 2:133120 -t 2:8300
+# Copy the EFI partition
 	mformat -i boot/disk.img@@1M
 	mmd -i boot/disk.img@@1M ::/EFI ::/EFI/BOOT
 	mcopy -i boot/disk.img@@1M $K/kernel ::/
 	mcopy -i boot/disk.img@@1M boot/limine.conf ::/
 	mcopy -i boot/disk.img@@1M boot/BOOTX64.EFI ::/EFI/BOOT
+# Create the OS partition
+	sudo losetup --partscan /dev/loop0 boot/disk.img
+	sudo $F/crowfs /dev/loop0p2 new
+	sudo losetup -d /dev/loop0
 
 # Emulation
 QEMU=qemu-system-x86_64
@@ -107,4 +119,4 @@ qemu-kvm-gdb: boot/disk.img
 
 .PHONY: clean
 clean:
-	rm -f $K/kernel $K/**/*.o $K/cpu/isr.S boot/disk.img
+	rm -f $K/kernel $K/**/*.o $K/cpu/isr.S boot/disk.img $F/crowfs
