@@ -8,6 +8,7 @@
 #include "device/pcie.h"
 #include "device/pic.h"
 #include "device/serial_port.h"
+#include "fs/fs.h"
 #include "limine.h"
 #include "mem/mem.h"
 #include "mem/vmm.h"
@@ -90,6 +91,10 @@ void kmain(void) {
   // Setup NVMe
   nvme_init();
   kprintf("Initialized NVMe\n");
+
+  // Setup the file system
+  fs_init();
+  kprintf("Initialized file system\n");
 
   // Setup the interrupt vector
   idt_init();

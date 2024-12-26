@@ -54,6 +54,7 @@ OBJS=$K/init.o \
 	$K/device/pcie.o \
 	$K/device/pic.o \
 	$K/device/serial_port.o \
+	$K/fs/fs.o \
 	$K/mem/mem.o \
 	$K/mem/vmm.o \
 	$K/userspace/ring3.o \
@@ -101,7 +102,7 @@ QEMUOPT += -drive file=boot/disk.img,if=none,id=nvm,format=raw -device nvme,seri
 
 .PHONY: qemu
 qemu: boot/disk.img
-	$(QEMU) -cpu Haswell $(QEMUOPT)
+	$(QEMU) -cpu SandyBridge $(QEMUOPT)
 
 .PHONY: qemu-kvm
 qemu-kvm: boot/disk.img
@@ -110,7 +111,7 @@ qemu-kvm: boot/disk.img
 .PHONY: qemu-gdb
 qemu-gdb: boot/disk.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
-	$(QEMU) -cpu Haswell $(QEMUOPT) -s -S
+	$(QEMU) -cpu SandyBridge $(QEMUOPT) -s -S
 
 .PHONY: qemu-kvm-gdb
 qemu-kvm-gdb: boot/disk.img

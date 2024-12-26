@@ -414,6 +414,13 @@ void nvme_read(uint64_t lba, uint32_t block_count, char *buffer) {
 }
 
 /**
+ * Gets the size of each block of the NVMe device
+ */
+uint32_t nvme_block_size(void) {
+  return nvme_device.block_size;
+}
+
+/**
  * Initialize NVMe driver
  *
  * Under the hood, it looks for NVMe devices attached to PCIe,
