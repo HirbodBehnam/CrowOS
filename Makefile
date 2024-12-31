@@ -55,6 +55,7 @@ OBJS=$K/init.o \
 	$K/device/pic.o \
 	$K/device/serial_port.o \
 	$K/fs/fs.o \
+	$K/fs/file.o \
 	$K/mem/mem.o \
 	$K/mem/vmm.o \
 	$K/userspace/ring3.o \

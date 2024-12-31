@@ -1,5 +1,8 @@
+#include "fs.h"
 #include "CrowFS/crowfs.h"
+#include "common/lib.h"
 #include "common/printf.h"
+#include "common/spinlock.h"
 #include "device/nvme.h"
 #include "mem/mem.h"
 
@@ -69,6 +72,88 @@ static struct CrowFS main_filesystem = {
     .total_blocks = total_blocks,
     .current_date = current_date,
 };
+
+#define MAX_INODES 64
+// A static list of inodes
+static struct {
+  // List of all inodes on the memory
+  struct fs_inode inodes[MAX_INODES];
+  // A lock to disable mutual access
+  struct spinlock lock;
+} fs_inode_list;
+
+/**
+ * Opens the inode for the given file. Returns NULL
+ * if there is no free inodes or the file does not exists.
+ *
+ * Flags must correspond to the CrowFS flags.
+ */
+struct fs_inode *fs_open(const char *path, uint32_t flags) {
+  // Get the dnode from the file system
+  uint32_t dnode, parent;
+  int result = crowfs_open(&main_filesystem, path, &dnode, &parent, flags);
+  if (result != CROWFS_OK)
+    return NULL;
+  // Look for an inode
+  struct fs_inode *inode = NULL, *free_inode = NULL;
+  spinlock_lock(&fs_inode_list.lock);
+  for (int i = 0; i < MAX_INODES; i++) {
+    if (fs_inode_list.inodes[i].type == INODE_EMPTY) {
+      // We save a free inode in case that we end up not having this inode in
+      // the list of open inodes
+      free_inode = &fs_inode_list.inodes[i];
+    } else if (fs_inode_list.inodes[i].dnode == dnode) {
+      // We found the inode!
+      inode = &fs_inode_list.inodes[i];
+      // Note for myself: I'm not sure about this. The whole goddamn
+      // file system is racy and buggy as fuck. If we se the parent
+      // each time we move this inode, I think we won't have an issue
+      // in regard of inode->parent_dnode. So I don't think we need
+      // to set the inode->parent_dnode as parent.
+      // Even setting it MIGHT cause some race issues.
+      inode->reference_count++;
+      break;
+    }
+  }
+  // Did we found an inode? If not, did we found a free inode?
+  if (inode == NULL && free_inode != NULL) {
+    inode = free_inode;
+    inode->dnode = dnode;
+    inode->parent_dnode = parent;
+    inode->reference_count = 1;
+    // TODO: Move this to the file system.
+    struct CrowFSStat stat;
+    result = crowfs_stat(&main_filesystem, dnode, &stat);
+    if (result != CROWFS_OK)
+      panic("fs_open stat failed");
+    switch (stat.type) {
+    case CROWFS_ENTITY_FILE:
+      inode->type = INODE_FILE;
+      inode->size = stat.size;
+      break;
+    case CROWFS_ENTITY_FOLDER:
+      inode->type = INODE_DIRECTORY;
+      break;
+    default:
+      panic("open: invalid dnode type");
+      break;
+    }
+  }
+  spinlock_unlock(&fs_inode_list.lock);
+  return inode;
+}
+
+/**
+ * Closes an inode. Decrements it's reference counter and
+ * frees it if needed.
+ */
+void fs_close(struct fs_inode *inode) {
+  spinlock_lock(&fs_inode_list.lock);
+  inode->reference_count--;
+  if (inode->reference_count == 0)
+    memset(inode, 0, sizeof(*inode));
+  spinlock_unlock(&fs_inode_list.lock);
+}
 
 /**
  * Initialize the filesystem. Check if the file system existsing is valid
