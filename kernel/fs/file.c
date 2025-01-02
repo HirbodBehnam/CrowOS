@@ -5,6 +5,8 @@
 
 /**
  * Opens a file/directory in the running process.
+ * The path must be a FILE in the filesystem. Devices and
+ * pipes are not handled here.
  *
  * Returns the fd which was allocated. -1 on failure.
  */
@@ -14,7 +16,7 @@ int file_open(const char *path, uint32_t flags) {
   // currently only single threaded.
   struct process *p = my_process();
   if (p == NULL)
-    panic("open: no process");
+    panic("file_open: no process");
   int fd = -1;
   for (int i = 0; i < MAX_OPEN_FILES; i++) {
     if (p->open_files[i].type == FD_EMPTY) {
@@ -39,4 +41,40 @@ int file_open(const char *path, uint32_t flags) {
   p->open_files[fd].readble = (flags & O_WRONLY) != 0;
   p->open_files[fd].writable = (flags & O_WRONLY) || (flags & O_RDWR);
   return fd;
+}
+
+/**
+ * Writes a data to a file. Expects the fd to be valid.
+ * 
+ * Returns the number of bytes written or a negative value on error.
+ */
+int file_write(int fd, const char *buffer, size_t len) {
+  struct process *p = my_process();
+  if (p == NULL)
+    panic("file_open: no process");
+  if (fd < 0 || fd >= MAX_OPEN_FILES || !p->open_files[fd].writable || p->open_files[fd].type != FD_INODE)
+    panic("fd_open: fd");
+  int result = fs_write(p->open_files[fd].structures.inode, buffer, len, p->open_files[fd].offset);
+  if (result < 0)
+    return result;
+  p->open_files[fd].offset += result;
+  return result;
+}
+
+/**
+ * Reads data from a file. Expects the fd to be valid.
+ * 
+ * Returns the number of bytes written or a negative value on error.
+ */
+int file_read(int fd, char *buffer, size_t len) {
+  struct process *p = my_process();
+  if (p == NULL)
+    panic("file_open: no process");
+  if (fd < 0 || fd >= MAX_OPEN_FILES || !p->open_files[fd].readble || p->open_files[fd].type != FD_INODE)
+    panic("fd_open: fd");
+  int result = fs_read(p->open_files[fd].structures.inode, buffer, len, p->open_files[fd].offset);
+  if (result < 0)
+    return result;
+  p->open_files[fd].offset += result;
+  return result;
 }

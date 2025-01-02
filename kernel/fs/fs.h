@@ -20,4 +20,6 @@ struct fs_inode {
 
 struct fs_inode *fs_open(const char *path, uint32_t flags);
 void fs_close(struct fs_inode *inode);
+int fs_write(struct fs_inode *inode, const char *buffer, size_t len, size_t offset);
+int fs_read(struct fs_inode *inode, char *buffer, size_t len, size_t offset);
 void fs_init(void);

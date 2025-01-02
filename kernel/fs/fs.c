@@ -156,6 +156,30 @@ void fs_close(struct fs_inode *inode) {
 }
 
 /**
+ * Writes a chunk of data in the disk.
+ * 
+ * Returns the number of bytes written or -1 on error.
+ */
+int fs_write(struct fs_inode *inode, const char *buffer, size_t len, size_t offset) {
+  int result = crowfs_write(&main_filesystem, inode->dnode, buffer, len, offset);
+  if (result != CROWFS_OK)
+    return -1;
+  return (int) len;
+}
+
+/**
+ * Reads a chunk of data from the disk.
+ * 
+ * Returns the number of bytes written or -1 on error.
+ */
+int fs_read(struct fs_inode *inode, char *buffer, size_t len, size_t offset) {
+  int result = crowfs_read(&main_filesystem, inode->dnode, buffer, len, offset);
+  if (result < 0)
+    return -1;
+  return result;
+}
+
+/**
  * Initialize the filesystem. Check if the file system existsing is valid
  * and load metadata of it in the memory.
  */

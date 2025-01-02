@@ -31,3 +31,7 @@ struct fs_file {
   // Can we write in this file?
   bool writable;
 };
+
+int file_open(const char *path, uint32_t flags);
+int file_write(int fd, const char *buffer, size_t len);
+int file_read(int fd, char *buffer, size_t len);
