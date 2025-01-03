@@ -24,10 +24,11 @@ struct process {
   // The pagetable of this process
   pagetable_t pagetable;
   // Files open for this process. The index is the fd in the process.
-  struct fs_file open_files[MAX_OPEN_FILES];
+  struct process_file open_files[MAX_OPEN_FILES];
 };
 
 struct process *my_process(void);
+int proc_allocate_fd(void);
 void scheduler_init(void);
 void scheduler_switch_back(void);
 void scheduler(void);

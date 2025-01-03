@@ -54,6 +54,7 @@ OBJS=$K/init.o \
 	$K/device/pcie.o \
 	$K/device/pic.o \
 	$K/device/serial_port.o \
+	$K/fs/device.o \
 	$K/fs/fs.o \
 	$K/fs/file.o \
 	$K/mem/mem.o \

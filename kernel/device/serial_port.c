@@ -1,5 +1,6 @@
 // Mostly from https://wiki.osdev.org/Serial_Ports
 #include "serial_port.h"
+#include "common/printf.h"
 #include "cpu/asm.h"
 #include "cpu/traps.h"
 #include "device/pic.h"
@@ -87,4 +88,29 @@ void serial_echo_back_char(void) {
   char c = serial_getc();
   serial_putc(c);
   lapic_send_eoi();
+}
+
+/**
+ * Writes a string into the serial port
+ */
+int serial_write(const char *buffer, size_t len) {
+  for (size_t i = 0; i < len; i++)
+    serial_putc(buffer[i]);
+  return (int)len;
+}
+
+/**
+ * Blocks and waits until one byte is read from the serial port.
+ *
+ * TODO: make this more versatile somehow? How does pintos/xv6 handle serial
+ * port? Interrups? Busywait?
+ * Also, we read a single byte. Is this fine?
+ */
+int serial_read(char *buffer, size_t len) {
+  (void)buffer;
+  // But why would anyone do this?
+  if (len == 0)
+    return 0;
+  // Wait for one char
+  panic("shash");
 }

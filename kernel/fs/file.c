@@ -1,6 +1,6 @@
 #include "file.h"
-#include "common/printf.h"
 #include "CrowFS/crowfs.h"
+#include "common/printf.h"
 #include "userspace/proc.h"
 
 /**
@@ -12,20 +12,10 @@
  */
 int file_open(const char *path, uint32_t flags) {
   // Look for an empty file.
-  // This is OK to be not locked because each process is
-  // currently only single threaded.
-  struct process *p = my_process();
-  if (p == NULL)
-    panic("file_open: no process");
-  int fd = -1;
-  for (int i = 0; i < MAX_OPEN_FILES; i++) {
-    if (p->open_files[i].type == FD_EMPTY) {
-      fd = i;
-      break;
-    }
-  }
-  if (fd == -1) // out of free files
+  int fd = proc_allocate_fd();
+  if (fd == -1)
     return -1;
+  struct process *p = my_process(); // p is not null
   // Note: I can defer the p->open_files[i].type = FD_... because
   // of single threaded.
   // Try to open the file
@@ -45,16 +35,18 @@ int file_open(const char *path, uint32_t flags) {
 
 /**
  * Writes a data to a file. Expects the fd to be valid.
- * 
+ *
  * Returns the number of bytes written or a negative value on error.
  */
 int file_write(int fd, const char *buffer, size_t len) {
   struct process *p = my_process();
   if (p == NULL)
     panic("file_open: no process");
-  if (fd < 0 || fd >= MAX_OPEN_FILES || !p->open_files[fd].writable || p->open_files[fd].type != FD_INODE)
+  if (fd < 0 || fd >= MAX_OPEN_FILES || !p->open_files[fd].writable ||
+      p->open_files[fd].type != FD_INODE)
     panic("fd_open: fd");
-  int result = fs_write(p->open_files[fd].structures.inode, buffer, len, p->open_files[fd].offset);
+  int result = fs_write(p->open_files[fd].structures.inode, buffer, len,
+                        p->open_files[fd].offset);
   if (result < 0)
     return result;
   p->open_files[fd].offset += result;
@@ -63,16 +55,18 @@ int file_write(int fd, const char *buffer, size_t len) {
 
 /**
  * Reads data from a file. Expects the fd to be valid.
- * 
+ *
  * Returns the number of bytes written or a negative value on error.
  */
 int file_read(int fd, char *buffer, size_t len) {
   struct process *p = my_process();
   if (p == NULL)
     panic("file_open: no process");
-  if (fd < 0 || fd >= MAX_OPEN_FILES || !p->open_files[fd].readble || p->open_files[fd].type != FD_INODE)
+  if (fd < 0 || fd >= MAX_OPEN_FILES || !p->open_files[fd].readble ||
+      p->open_files[fd].type != FD_INODE)
     panic("fd_open: fd");
-  int result = fs_read(p->open_files[fd].structures.inode, buffer, len, p->open_files[fd].offset);
+  int result = fs_read(p->open_files[fd].structures.inode, buffer, len,
+                       p->open_files[fd].offset);
   if (result < 0)
     return result;
   p->open_files[fd].offset += result;

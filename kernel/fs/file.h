@@ -14,7 +14,7 @@
 #define O_APPEND  02000
 
 // A file which is open a program
-struct fs_file {
+struct process_file {
   // What is this file?
   enum { FD_EMPTY, FD_INODE, FD_DEVICE } type;
   // Data structures which are exclusive to each file type

@@ -72,6 +72,30 @@ extern void jump_to_ring3(void);
 struct process *my_process(void) { return running_process[get_processor_id()]; }
 
 /**
+ * Allocates a file descriptor of the running process.
+ * This function is not thread safe and a process shall not call this
+ * function twice in two different threads.
+ * 
+ * TODO: I can make this thread safe by adding a "USED" type for each
+ * open file and change the type of each selected fd to USED. (like xv6)
+ */
+int proc_allocate_fd(void) {
+  // This is OK to be not locked because each process is
+  // currently only single threaded.
+  struct process *p = my_process();
+  if (p == NULL)
+    panic("proc_allocate_fd: no process");
+  int fd = -1;
+  for (int i = 0; i < MAX_OPEN_FILES; i++) {
+    if (p->open_files[i].type == FD_EMPTY) {
+      fd = i;
+      break;
+    }
+  }
+  return fd; // may be -1
+}
+
+/**
  * Setup the scheduler by creating a process which runs as the very program
  */
 void scheduler_init(void) {
