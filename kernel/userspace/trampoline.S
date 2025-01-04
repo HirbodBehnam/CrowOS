@@ -53,6 +53,7 @@ interrupt_handler_asm:
 	pop rdi
 	iretq
 
+# Syscall parameters in CrowOS are just like Linux
 .global syscall_handler_asm
 .type syscall_handler_asm, @function
 syscall_handler_asm:
@@ -60,6 +61,7 @@ syscall_handler_asm:
 	# use rax register. We at first save it to top of the stack and
 	# then use rax to move the rsp to the syscall stack. Then, we will
 	# restore rax.
+	# TODO: Later use swapgs to implement this in a cleaner way
 	mov [SYSCALLSTACK_VIRTUAL_ADDRESS_TOP - 8], rax
 	mov rax, rsp
 	mov [SYSCALLSTACK_VIRTUAL_ADDRESS_TOP - 16], rax

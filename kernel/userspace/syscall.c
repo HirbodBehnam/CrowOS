@@ -1,6 +1,7 @@
 #include "syscall.h"
 #include "cpu/asm.h"
 #include "cpu/gdt.h"
+#include "fs/syscall.h"
 
 #define IA32_EFER 0xC0000080
 #define IA32_STAR 0xC0000081
@@ -45,14 +46,14 @@ void syscall_init(void) {
 /**
  * The entry point of the syscall for each process.
  */
-uint64_t syscall_c(uint64_t syscall_number) {
+uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2, uint64_t a3) {
   switch (syscall_number) {
   case SYSCALL_READ:
-    break;
+    return sys_read((int) a1, (char *) a2, (size_t) a3);
   case SYSCALL_WRITE:
-    break;
+    return sys_write((int) a1, (const char *) a2, (size_t) a3);
   case SYSCALL_OPEN:
-    break;
+    return sys_open((const char *) a1, (uint32_t) a2);
   case SYSCALL_CLOSE:
     break;
   case SYSCALL_BRK:

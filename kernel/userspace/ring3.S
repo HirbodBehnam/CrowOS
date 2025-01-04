@@ -51,12 +51,23 @@ jump_to_ring3:
 .global ring3_init
 # This is the code which initializes the userspace
 ring3_init:
-    # For now, we use busyloop
-    nop
+    # Create "serial" on stack
+    mov rax, 0x6c6169726573 # "serial" in reverse for little endian
+    push rax
+    mov rax, 2 # open syscall
+    mov rdi, rsp # path of the device
+    mov rsi, 2048 # device flag
     syscall
-    nop
-    int 0x80
-    nop
-    jmp ring3_init
+    # Result of the syscall (fd) is in rax
+    mov rdi, rax # fd
+    mov rax, 1 # write syscall
+    mov rsi, rsp # address of a string
+    mov rdx, 6 # number of bytes to write
+    syscall
+    # Done?
+    add rsp, 8 # remove serial
+    # For now, we use busyloop
+ring3_infinite_loop:
+    jmp ring3_infinite_loop
 
 .section .note.GNU-stack

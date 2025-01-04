@@ -8,14 +8,7 @@
 /**
  * List of all devices which user can use
  */
-static struct {
-  // Common name of device. User uses the open syscall to open the device.
-  const char *name;
-  // What we should do on the read from this device
-  int (*read)(char *, size_t);
-  // What we should do on the write to this device
-  int (*write)(const char *, size_t);
-} devices[] = {{
+static struct device devices[] = {{
     .name = "serial",
     .read = serial_read,
     .write = serial_write,
@@ -47,4 +40,14 @@ int device_open(const char *name) {
   p->open_files[fd].readble = devices[device_index].read != NULL;
   p->open_files[fd].writable = devices[device_index].write != NULL;
   return fd;
+}
+
+/**
+ * Gets a device by its index. Will return NULL if the index
+ * is out of bounds.
+ */
+struct device *device_get(int index) {
+  if (index < 0 || index >= (int)DEVICES_SIZE)
+    return NULL;
+  return &devices[index];
 }

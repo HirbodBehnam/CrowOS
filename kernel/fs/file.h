@@ -12,6 +12,7 @@
 #define O_CREAT   0100
 #define O_TRUNC   01000
 #define O_APPEND  02000
+#define O_DEVICE  04000 // open a device file instead of a file
 
 // A file which is open a program
 struct process_file {
