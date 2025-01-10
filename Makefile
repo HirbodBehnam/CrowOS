@@ -60,11 +60,16 @@ OBJS=$K/init.o \
 	$K/fs/syscall.o \
 	$K/mem/mem.o \
 	$K/mem/vmm.o \
+	$K/userspace/exec.o \
 	$K/userspace/ring3.o \
 	$K/userspace/proc.o \
 	$K/userspace/trampoline.o \
 	$K/userspace/syscall.o \
 	$F/crowfs.o \
+
+UPROGS=\
+	$U/_init\
+# Compile with gcc -static -nostdlib prog.S -o _prg
 
 $K/kernel: $(OBJS) $K/linker.ld
 	$(LD) $(KLDFLAGS) -T $K/linker.ld -o $K/kernel $(OBJS) 
@@ -78,7 +83,7 @@ $F/crowfs: $F/crowfs.c $F/main.c
 	gcc -O2 -o $F/crowfs $F/crowfs.c $F/main.c
 
 # Creating the bootable image
-boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI $F/crowfs
+boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI $F/crowfs $(UPROGS)
 # Create the image
 	rm boot/disk.img || true
 	truncate -s 100M boot/disk.img
@@ -92,6 +97,9 @@ boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI $F/crowfs
 # Create the OS partition
 	sudo losetup --partscan /dev/loop0 boot/disk.img
 	sudo $F/crowfs /dev/loop0p2 new
+# Copy the user programs
+	sudo $F/crowfs /dev/loop0p2 copyin $U/_init /init
+# Unmount the OS partition
 	sudo losetup -d /dev/loop0
 
 # Emulation

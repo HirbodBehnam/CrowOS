@@ -12,9 +12,9 @@ jump_to_ring3:
     # Setup the data segments
     mov ax, GDT_USER_DATA_SEGMENT | 3
     mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
 
     # Create the interrupt values. See figure 6-9 from Intel Manual Volume 3
     mov  rax, GDT_USER_DATA_SEGMENT | 3
@@ -51,23 +51,16 @@ jump_to_ring3:
 .global ring3_init
 # This is the code which initializes the userspace
 ring3_init:
-    # Create "serial" on stack
-    mov rax, 0x6c6169726573 # "serial" in reverse for little endian
+    # Create "/init" on stack
+    mov rax, 0x74696e692f
     push rax
-    mov rax, 2 # open syscall
-    mov rdi, rsp # path of the device
-    mov rsi, 2048 # device flag
+    mov rax, 5 # exec syscall
+    mov rdi, rsp # path of the init
+    xor rsi, rsi # parameters are null
     syscall
-    # Result of the syscall (fd) is in rax
-    mov rdi, rax # fd
-    mov rax, 1 # write syscall
-    mov rsi, rsp # address of a string
-    mov rdx, 6 # number of bytes to write
-    syscall
-    # Done?
-    add rsp, 8 # remove serial
     # For now, we use busyloop
 ring3_infinite_loop:
+    int 0x80 # Give up the scheduler
     jmp ring3_infinite_loop
 
 .section .note.GNU-stack

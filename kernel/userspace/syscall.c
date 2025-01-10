@@ -2,6 +2,7 @@
 #include "cpu/asm.h"
 #include "cpu/gdt.h"
 #include "fs/syscall.h"
+#include "userspace/exec.h"
 
 #define IA32_EFER 0xC0000080
 #define IA32_STAR 0xC0000081
@@ -59,6 +60,7 @@ uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2, uint64_t a
   case SYSCALL_BRK:
     break;
   case SYSCALL_EXEC:
+    proc_exec((const char *) a1, (const char **) a2);
     break;
   case SYSCALL_EXIT:
     break;

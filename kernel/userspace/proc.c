@@ -36,10 +36,20 @@ static inline uint64_t get_next_pid(void) {
   return __atomic_fetch_add(&next_pid, 1, __ATOMIC_RELAXED);
 }
 
+// defined in snippets.S
+extern void context_switch(uint64_t to_rsp, uint64_t *from_rsp);
+// defined in ring3.S
+extern void jump_to_ring3(void);
+
 /**
- * Allocate a process. Will return NULL on error.
+ * Gets the current running process of this CPU core
  */
-static struct process *process_allocate(void) {
+struct process *my_process(void) { return running_process[get_processor_id()]; }
+
+/**
+ * Allocate a new process. Will return NULL on error.
+ */
+struct process *proc_allocate(void) {
   // Find a free process slot
   struct process *p = NULL;
   for (size_t i = 0; i < MAX_PROCESSES; i++) {
@@ -60,16 +70,6 @@ static struct process *process_allocate(void) {
   }
   return p;
 }
-
-// defined in snippets.S
-extern void context_switch(uint64_t to_rsp, uint64_t *from_rsp);
-// defined in ring3.S
-extern void jump_to_ring3(void);
-
-/**
- * Gets the current running process of this CPU core
- */
-struct process *my_process(void) { return running_process[get_processor_id()]; }
 
 /**
  * Allocates a file descriptor of the running process.
@@ -100,7 +100,7 @@ int proc_allocate_fd(void) {
  */
 void scheduler_init(void) {
   // Allocate a process
-  struct process *p = process_allocate();
+  struct process *p = proc_allocate();
   if (p == NULL)
     panic("scheduler_init OOM?");
   // Map the ring3 code to the code segment

@@ -28,6 +28,7 @@ struct process {
 };
 
 struct process *my_process(void);
+struct process *proc_allocate(void);
 int proc_allocate_fd(void);
 void scheduler_init(void);
 void scheduler_switch_back(void);
