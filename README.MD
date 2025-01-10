@@ -10,16 +10,20 @@ Writing an operating system for x86_64 for fun on top of [Limine](https://github
     - [x] Interrupt handler
     - [x] Cooperative scheduling
     - [x] Round robin scheduling
+    - [ ] Wait
     - [ ] Preemptive scheduling
     - [ ] Shell
 - [ ] File System
     - [x] NVMe driver
     - [x] CrowFS file system
-    - [ ] File open/closing
-    - [ ] File read
-    - [ ] File append
-    - [ ] File creation
+    - [x] Device Files
+    - [x] File open/closing
+    - [x] File read
+    - [x] File append
+    - [x] File creation
     - [ ] Folder creation
+    - [ ] File removal
+    - [ ] Rename
 - [ ] CMOS RTC
 - [ ] Multiprocessor/SMP
 - [ ] VGA/Framebuffer

@@ -10,6 +10,11 @@
  */
 #define PAGE_SIZE 4096
 
+/**
+ * Rounds a size to the nearest page size
+ */
+#define PAGE_ROUND_UP(sz)  (((sz)+PAGE_SIZE-1) & ~(PAGE_SIZE-1))
+
 #ifndef __ASSEMBLER__
 /**
  * The HHDM offset with current Limine works with. Defined in mem.c

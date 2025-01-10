@@ -151,6 +151,26 @@ uint64_t vmm_ring3init_frame(void) {
 }
 
 /**
+ * Gets the physical addres of a virtual address from a page table.
+ * If user is true, the page must be in user mode. Otherwise it should be
+ * in the kernel mode. Returns zero if the page does not exists or the
+ * permissions do not match.
+ */
+uint64_t vmm_walkaddr(pagetable_t pagetable, uint64_t va, bool user) {
+  if (va >= VA_MAX)
+    return 0;
+
+  struct pte_t *pte = walk(pagetable, va, false, false);
+  if (pte == 0)
+    return 0;
+  if (!pte->present)
+    return 0;
+  if (pte->us != user)
+    return 0;
+  return pte->address << 12;
+}
+
+/**
  * Create PTEs for virtual addresses starting at va that refer to physical
  * addresses starting at pa. va and size MUST be page-aligned. Returns 0 on
  * success, -1 if walk() couldn't allocate a needed page-table page.
@@ -181,6 +201,41 @@ int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
     pte->xd = !permissions.executable;
     pte->us = permissions.userspace;
     pte->address = PTE_GET_PHY_ADDRESS(current_pa);
+  }
+  return 0;
+}
+
+/**
+ * Allocates pages in a page table. va must be page aligned and the size
+ * must be devisable by page size. Returns 0 on success, -1 if walk() couldn't
+ * allocate a needed pagetable page.
+ */
+int vmm_allocate(pagetable_t pagetable, uint64_t va, uint64_t size,
+                 pte_permissions permissions) {
+  // Sanity checks
+  if (va % PAGE_SIZE != 0)
+    panic("vmm_allocate: va not aligned");
+  if (size % PAGE_SIZE != 0)
+    panic("vmm_allocate: size not aligned");
+  if (size == 0)
+    panic("vmm_allocate: size");
+  // Allocate pages
+  const uint64_t pages_to_alloc = size / PAGE_SIZE;
+  for (uint64_t i = 0; i < pages_to_alloc; i++) {
+    const uint64_t current_va = va + i * PAGE_SIZE;
+    void *frame = kalloc();
+    if (frame == NULL)
+      return -1;
+    struct pte_t *pte = walk(pagetable, current_va, true, false);
+    if (pte == NULL)
+      return -1;      // OOM
+    if (pte->present) // this page already exists?
+      panic("vmm_allocate: remap");
+    pte->present = 1; // make this page available
+    pte->rw = permissions.writable;
+    pte->xd = !permissions.executable;
+    pte->us = permissions.userspace;
+    pte->address = PTE_GET_PHY_ADDRESS(V2P(frame));
   }
   return 0;
 }

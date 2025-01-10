@@ -1,7 +1,8 @@
 #include "proc.h"
 #include "common/printf.h"
-#include "cpu/smp.h"
 #include "cpu/asm.h"
+#include "cpu/smp.h"
+#include "userspace/exec.h"
 
 /**
  * The kernel stackpointer which we used just before we have switched to
@@ -75,7 +76,7 @@ struct process *proc_allocate(void) {
  * Allocates a file descriptor of the running process.
  * This function is not thread safe and a process shall not call this
  * function twice in two different threads.
- * 
+ *
  * TODO: I can make this thread safe by adding a "USED" type for each
  * open file and change the type of each selected fd to USED. (like xv6)
  */
@@ -99,31 +100,8 @@ int proc_allocate_fd(void) {
  * Setup the scheduler by creating a process which runs as the very program
  */
 void scheduler_init(void) {
-  // Allocate a process
-  struct process *p = proc_allocate();
-  if (p == NULL)
-    panic("scheduler_init OOM?");
-  // Map the ring3 code to the code segment
-  if (vmm_map_pages(
-          p->pagetable, USER_CODE_START, PAGE_SIZE, V2P(vmm_ring3init_frame()),
-          (pte_permissions){.writable = 0, .executable = 1, .userspace = 1}) !=
-      0)
-    panic("scheduler_init code");
-  // Make the trap stack in a way that the switch context would jump
-  // to jump_to_ring3(). Because we have 6 global registers, we can fill the
-  // stack with 6 8byte zeros and then a return address. However, because we
-  // zero the registers just before jumping to userspace, we can simply ignore
-  // these registers and just put a return address at the very top of stack.
-  uint64_t return_address = (uint64_t)jump_to_ring3;
-  install_pagetable(V2P(p->pagetable));
-  *(volatile uint64_t *)(INTSTACK_VIRTUAL_ADDRESS_TOP - sizeof(uint64_t)) =
-      return_address;
-  // Note to myself: We can keep the pagetable. In the scheduler we will install
-  // this exact pagetable again.
-  // 6 registers and return value
-  p->resume_stack_pointer = INTSTACK_VIRTUAL_ADDRESS_TOP - sizeof(uint64_t) * 7;
-  // Then we are good. The scheduler should be able to run this program
-  p->state = RUNNABLE;
+  if (proc_exec("/init", NULL) == (uint64_t)-1)
+    panic("cannot create /init process");
   kprintf("Initialized first userprog\n");
 }
 

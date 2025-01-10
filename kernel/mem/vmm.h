@@ -35,11 +35,12 @@
 #define USER_STACK_BOTTOM ((1ULL << 31) - PAGE_SIZE)
 
 /**
- * Interrupt stack virtual address. Used when userspace is switching to kernel space
- * to store the interrupt stack. Interrupt stack is one page only.
+ * Interrupt stack virtual address. Used when userspace is switching to kernel
+ * space to store the interrupt stack. Interrupt stack is one page only.
  */
 #define INTSTACK_VIRTUAL_ADDRESS_TOP VA_MAX
-#define INTSTACK_VIRTUAL_ADDRESS_BOTTOM (INTSTACK_VIRTUAL_ADDRESS_TOP - PAGE_SIZE)
+#define INTSTACK_VIRTUAL_ADDRESS_BOTTOM                                        \
+  (INTSTACK_VIRTUAL_ADDRESS_TOP - PAGE_SIZE)
 
 /**
  * The stack which we can use for syscall of user programs. The first values
@@ -49,7 +50,8 @@
  * (This points to top of stack)
  */
 #define SYSCALLSTACK_VIRTUAL_ADDRESS_TOP INTSTACK_VIRTUAL_ADDRESS_BOTTOM
-#define SYSCALLSTACK_VIRTUAL_ADDRESS_BOTTOM (SYSCALLSTACK_VIRTUAL_ADDRESS_TOP - PAGE_SIZE)
+#define SYSCALLSTACK_VIRTUAL_ADDRESS_BOTTOM                                    \
+  (SYSCALLSTACK_VIRTUAL_ADDRESS_TOP - PAGE_SIZE)
 
 #ifndef __ASSEMBLER__
 /**
@@ -116,8 +118,11 @@ typedef struct pte_t *pagetable_t;
 
 void vmm_init_kernel(const struct limine_kernel_address_response);
 uint64_t vmm_ring3init_frame(void);
+uint64_t vmm_walkaddr(pagetable_t pagetable, uint64_t va, bool user);
 int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
                   uint64_t pa, pte_permissions permissions);
+int vmm_allocate(pagetable_t pagetable, uint64_t va, uint64_t size,
+                 pte_permissions permissions);
 void *vmm_io_memmap(uint64_t pa, uint64_t size);
 pagetable_t vmm_create_user_pagetable();
 #endif

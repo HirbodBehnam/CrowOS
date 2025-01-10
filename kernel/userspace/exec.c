@@ -1,7 +1,9 @@
 #include "exec.h"
+#include "common/printf.h"
 #include "cpu/asm.h"
 #include "fs/fs.h"
 #include "mem/mem.h"
+#include "mem/vmm.h"
 #include "userspace/proc.h"
 
 #define ELF_MAGIC 0x464C457FU // "\x7FELF" in little endian
@@ -45,6 +47,40 @@ struct ProgramHeader {
 #define ELF_PROG_FLAG_WRITE 2
 #define ELF_PROG_FLAG_READ 4
 
+static pte_permissions flags2perm(int flags) {
+  // Always userspace
+  pte_permissions perm = {.executable = 0, .userspace = 1, .writable = 0};
+  if (flags & 0x1)
+    perm.executable = 1;
+  if (flags & 0x2)
+    perm.writable = 1;
+  return perm;
+}
+
+static int load_segment(pagetable_t pagetable, struct fs_inode *ip, uint64_t va,
+                        uint32_t offset, uint32_t sz) {
+  /**
+   * Note: You might wonder: Why we get the physical address instead of just
+   * using the virtual address if the page table is mapped? Well, in some cases
+   * (like .rodata) the MMU maps that section as read only. Thus, we cannot
+   * write to that data. Instead, we can write to the physical address of
+   * the frame and that works just fine.
+   */
+  for (uint32_t i = 0; i < sz; i += PAGE_SIZE) {
+    uint64_t phyiscal_address = vmm_walkaddr(pagetable, va + i, true);
+    if (phyiscal_address == 0)
+      panic("load_segment: address should exist");
+    uint64_t n;
+    if (sz - i < PAGE_SIZE)
+      n = sz - i;
+    else
+      n = PAGE_SIZE;
+    if (fs_read(ip, (char *)P2V(phyiscal_address), n, offset + i) != (int)n)
+      return -1;
+  }
+  return 0;
+}
+
 /**
  * Creates a new process as the child of the running process.
  *
@@ -71,6 +107,9 @@ uint64_t proc_exec(const char *path, const char *args[]) {
   proc = proc_allocate();
   if (proc == NULL)
     goto bad;
+  // Setup the context of the new process by switching to its address
+  // space temporary
+  install_pagetable(V2P(proc->pagetable));
   // Read program section
   for (uint64_t i = 0, off = elf.phoff; i < elf.phnum; i++, off += sizeof(ph)) {
     if (fs_read(proc_inode, (char *)&ph, sizeof(ph), off) != sizeof(ph))
@@ -83,11 +122,15 @@ uint64_t proc_exec(const char *path, const char *args[]) {
       goto bad;
     if (ph.vaddr % PAGE_SIZE != 0)
       goto bad;
-    // TODO: load the segments in the memory
+    // Load the segments in the memory
+    if (vmm_allocate(proc->pagetable, ph.vaddr, PAGE_ROUND_UP(ph.memsz),
+                     flags2perm(ph.flags)) == -1)
+      goto bad;
+    // Probably no need to flush the TLB
+    if (load_segment(proc->pagetable, proc_inode, ph.vaddr, ph.off, ph.filesz) <
+        0)
+      goto bad;
   }
-  // Setup the context of the new process by switching to its address
-  // space temporary
-  install_pagetable(V2P(proc->pagetable));
 
   fs_close(proc_inode);
   proc->state = RUNNABLE; // now we can run this!
@@ -99,6 +142,7 @@ bad:
     proc->state = UNUSED;
     // TODO: The page table?
   }
+  // TODO: unmap/deallocate the pages allocated
   install_pagetable(current_pagetable); // switch back to page table before
   return -1;
 }
