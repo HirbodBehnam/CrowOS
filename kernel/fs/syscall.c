@@ -20,7 +20,7 @@ int sys_open(const char *path, uint32_t flags) {
 int sys_read(int fd, char *buffer, size_t len) {
   // Is this fd valid?
   struct process *p = my_process();
-  if (p->open_files[fd].type == FD_EMPTY)
+  if (fd < 0 || fd > MAX_OPEN_FILES || p->open_files[fd].type == FD_EMPTY)
     return -1;
   // Is this fd readable?
   if (!p->open_files[fd].readble)
@@ -45,7 +45,7 @@ int sys_read(int fd, char *buffer, size_t len) {
 int sys_write(int fd, const char *buffer, size_t len) {
   // Is this fd valid?
   struct process *p = my_process();
-  if (p->open_files[fd].type == FD_EMPTY)
+  if (fd < 0 || fd > MAX_OPEN_FILES || p->open_files[fd].type == FD_EMPTY)
     return -1;
   // Is this fd writable?
   if (!p->open_files[fd].writable)

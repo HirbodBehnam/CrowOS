@@ -5,27 +5,31 @@
 .intel_syntax noprefix
 .global jump_to_ring3
 .type jump_to_ring3, @function
-# Jumps to ring3 for the first time. The pagetable of the process must
-# be installed before calling this function. The prototype is just
-# void jump_to_ring3(void) and everything else is done from now on.
+# Jumps to ring3 for the first time of running a program.
+# The pagetable of the process must be installed before calling
+# this function. The prototype is void jump_to_ring3(uint64_t rsp, uint64_t _start)
+# which rsp is the initial stack pointer and the _start is the code address
+# which we should jump to.
+# However there is a very strange thing about this function: The calling convention.
+# We do not use SYS-V ABI to call this function. Because the entry point of this
+# function is from a context_switch, we do not control rdi and rsi. But we do control
+# callee saved registers such as r14 and r15. And thus, we exactly use r14 and r15
+# for the rsp value and the _start address.
 jump_to_ring3:
     # Setup the data segments
-    mov ax, GDT_USER_DATA_SEGMENT | 3
+    mov rax, GDT_USER_DATA_SEGMENT | 3
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
 
     # Create the interrupt values. See figure 6-9 from Intel Manual Volume 3
-    mov  rax, GDT_USER_DATA_SEGMENT | 3
-    push rax # SS
-    mov  rax, USER_STACK_TOP
-    push rax # Userspace stack
+    push rax # SS, set to GDT_USER_DATA_SEGMENT | 3
+    push r14 # Userspace stack
     pushfq   # eflags
     mov  rax, GDT_USER_CODE_SEGMENT | 3
     push rax # CS
-    mov  rax, USER_CODE_START
-    push rax # Function to run
+    push r15 # Function to run
 
     # Clear all registers
     xor rax, rax
@@ -46,21 +50,5 @@ jump_to_ring3:
 
     # Jump to userspace
     iretq
-
-.section ring3
-.global ring3_init
-# This is the code which initializes the userspace
-ring3_init:
-    # Create "/init" on stack
-    mov rax, 0x74696e692f
-    push rax
-    mov rax, 5 # exec syscall
-    mov rdi, rsp # path of the init
-    xor rsi, rsi # parameters are null
-    syscall
-    # For now, we use busyloop
-ring3_infinite_loop:
-    int 0x80 # Give up the scheduler
-    jmp ring3_infinite_loop
 
 .section .note.GNU-stack

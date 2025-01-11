@@ -47,6 +47,9 @@ struct ProgramHeader {
 #define ELF_PROG_FLAG_WRITE 2
 #define ELF_PROG_FLAG_READ 4
 
+// defined in ring3.S
+extern void jump_to_ring3(void);
+
 static pte_permissions flags2perm(int flags) {
   // Always userspace
   pte_permissions perm = {.executable = 0, .userspace = 1, .writable = 0};
@@ -57,13 +60,17 @@ static pte_permissions flags2perm(int flags) {
   return perm;
 }
 
+/**
+ * Loads a segment from the ELF file to the memory. The pages of the ELF file
+ * must be already allocated.
+ */
 static int load_segment(pagetable_t pagetable, struct fs_inode *ip, uint64_t va,
                         uint32_t offset, uint32_t sz) {
   /**
    * Note: You might wonder: Why we get the physical address instead of just
    * using the virtual address if the page table is mapped? Well, in some cases
-   * (like .rodata) the MMU maps that section as read only. Thus, we cannot
-   * write to that data. Instead, we can write to the physical address of
+   * (like .rodata or .text) the MMU maps that section as read only. Thus, we
+   * cannot write to that data. Instead, we can write to the physical address of
    * the frame and that works just fine.
    */
   for (uint32_t i = 0; i < sz; i += PAGE_SIZE) {
@@ -107,9 +114,6 @@ uint64_t proc_exec(const char *path, const char *args[]) {
   proc = proc_allocate();
   if (proc == NULL)
     goto bad;
-  // Setup the context of the new process by switching to its address
-  // space temporary
-  install_pagetable(V2P(proc->pagetable));
   // Read program section
   for (uint64_t i = 0, off = elf.phoff; i < elf.phnum; i++, off += sizeof(ph)) {
     if (fs_read(proc_inode, (char *)&ph, sizeof(ph), off) != sizeof(ph))
@@ -131,7 +135,25 @@ uint64_t proc_exec(const char *path, const char *args[]) {
         0)
       goto bad;
   }
+  // Setup the context of the new process by switching to its address
+  // space temporary
+  install_pagetable(V2P(proc->pagetable));
+  // Write the arguments to the user stack
+  // TODO:
 
+  // Write the initial context to the interrupt stack
+  *(struct process_context *)(INTSTACK_VIRTUAL_ADDRESS_TOP -
+                              sizeof(struct process_context)) =
+      (struct process_context){
+          .return_address = (uint64_t)jump_to_ring3,
+          .r14 = USER_STACK_TOP, // TODO: Add the arguments as well
+          .r15 = elf.entry,      // _start of the program
+      };
+  proc->resume_stack_pointer =
+      INTSTACK_VIRTUAL_ADDRESS_TOP - sizeof(struct process_context);
+
+  // We are fucking done!
+  install_pagetable(current_pagetable); // switch back to page table before
   fs_close(proc_inode);
   proc->state = RUNNABLE; // now we can run this!
   return proc->pid;

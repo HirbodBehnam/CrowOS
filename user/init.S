@@ -15,21 +15,23 @@ setup_serial_port:
     mov rsi, 2048 # device flag
     syscall
     # Result of the syscall (fd) is in rax
-    mov QWORD PTR [serial_port], rax
+    mov [serial_port], rax
     ret
 
 # Prints a string to terminal
 print_string:
-    mov rdi, rax # fd
     mov rax, 1 # write syscall
-    lea rdi, serial_string # address of a string; TODO: change
-    mov rdx, 6 # number of bytes to write
+    mov rdi, [serial_port] # fd
+    lea rsi, hello_message # address of a string; TODO: change
+    mov rdx, 22 # number of bytes to write
     syscall
     ret
 
 .section .rodata
 serial_string:
     .string "serial"
+hello_message:
+    .string "Hello from userspace!\n"
 .section .bss
 serial_port:
     .zero   8

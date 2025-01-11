@@ -14,25 +14,19 @@
  */
 #define VA_MAX (1ULL << 46)
 /**
- * Min virutal address of a memory in a process (2MB)
+ * Min virutal address of a memory in a process (4MB)
  */
-#define VA_MIN (1ULL << 21)
-
-/**
- * Where in the virtual memory we put the code of program in.
- * For now, this is the lowest possible virtual address.
- */
-#define USER_CODE_START (VA_MIN)
+#define VA_MIN (1ULL << 22)
 
 /**
  * Where we should put the top of the stack in the virtual address space
  */
-#define USER_STACK_TOP (1ULL << 31)
+#define USER_STACK_TOP (1ULL << 45)
 
 /**
  * Where we should put the bottom of the stack in the virtual address space
  */
-#define USER_STACK_BOTTOM ((1ULL << 31) - PAGE_SIZE)
+#define USER_STACK_BOTTOM (USER_STACK_TOP - PAGE_SIZE)
 
 /**
  * Interrupt stack virtual address. Used when userspace is switching to kernel
@@ -117,7 +111,6 @@ _Static_assert(sizeof(struct pte_t) == 8, "Each PTE must be 8 bytes");
 typedef struct pte_t *pagetable_t;
 
 void vmm_init_kernel(const struct limine_kernel_address_response);
-uint64_t vmm_ring3init_frame(void);
 uint64_t vmm_walkaddr(pagetable_t pagetable, uint64_t va, bool user);
 int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
                   uint64_t pa, pte_permissions permissions);

@@ -1,6 +1,6 @@
 #pragma once
-#include "mem/vmm.h"
 #include "fs/file.h"
+#include "mem/vmm.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -9,6 +9,25 @@
  */
 enum process_state { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+/**
+ * When we switch out or switch in the process, we shall save/load
+ * the context of the program. This context is stored here. This is basically
+ * a part of the stack of the program because we push our context values on
+ * the stack.
+ */
+struct process_context {
+  uint64_t r15;
+  uint64_t r14;
+  uint64_t r13;
+  uint64_t r12;
+  uint64_t rbp;
+  uint64_t rbx;
+  uint64_t return_address;
+};
+
+/**
+ * Maximum number of files which a process can open
+ */
 #define MAX_OPEN_FILES 16
 
 /**

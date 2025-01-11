@@ -130,9 +130,6 @@ static int copy_pagetable(pagetable_t dst, const pagetable_t src, int level) {
   return 0;
 }
 
-// Provided by linker
-extern char ring3_start[];
-
 /**
  * We just save the limine_kernel_address_response to be later accessed.
  */
@@ -140,14 +137,6 @@ void vmm_init_kernel(
     const struct limine_kernel_address_response _kernel_address) {
   kernel_address = _kernel_address;
   kernel_pagetable = (pagetable_t)P2V(get_installed_pagetable());
-}
-
-/**
- * Gets the frame of the ring3_init function.
- */
-uint64_t vmm_ring3init_frame(void) {
-  return kernel_address.physical_base +
-         ((uint64_t)ring3_start - kernel_address.virtual_base);
 }
 
 /**

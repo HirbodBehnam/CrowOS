@@ -24,12 +24,6 @@ SECTIONS
 
     .text : {
         *(.text .text.*)
-        . = ALIGN(0x1000);
-        PROVIDE(ring3_start = .);
-        _ring3 = .;
-        *(ring3)
-        . = ALIGN(0x1000);
-        ASSERT(. - _ring3 == 0x1000, "error: ring3 larger than one page");
     } :text
 
     /* Move to the next memory page for .rodata */

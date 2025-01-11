@@ -39,8 +39,6 @@ static inline uint64_t get_next_pid(void) {
 
 // defined in snippets.S
 extern void context_switch(uint64_t to_rsp, uint64_t *from_rsp);
-// defined in ring3.S
-extern void jump_to_ring3(void);
 
 /**
  * Gets the current running process of this CPU core
