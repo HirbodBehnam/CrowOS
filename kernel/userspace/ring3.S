@@ -7,7 +7,7 @@
 .type jump_to_ring3, @function
 # Jumps to ring3 for the first time of running a program.
 # The pagetable of the process must be installed before calling
-# this function. The prototype is void jump_to_ring3(uint64_t rsp, uint64_t _start)
+# this function. The prototype is void jump_to_ring3(uint64_t rsp, uint64_t _start, int argc)
 # which rsp is the initial stack pointer and the _start is the code address
 # which we should jump to.
 # However there is a very strange thing about this function: The calling convention.
@@ -15,6 +15,8 @@
 # function is from a context_switch, we do not control rdi and rsi. But we do control
 # callee saved registers such as r14 and r15. And thus, we exactly use r14 and r15
 # for the rsp value and the _start address.
+# argc is passed to the user program. It shall be put in r13.
+# You might wonder, what about argv? Lemme tell you. argv is the rsp!
 jump_to_ring3:
     # Setup the data segments
     mov rax, GDT_USER_DATA_SEGMENT | 3
@@ -26,18 +28,21 @@ jump_to_ring3:
     # Create the interrupt values. See figure 6-9 from Intel Manual Volume 3
     push rax # SS, set to GDT_USER_DATA_SEGMENT | 3
     push r14 # Userspace stack
-    pushfq   # eflags
+    mov  rax, 0x200 # Only IF is set
+    push rax # rflags
     mov  rax, GDT_USER_CODE_SEGMENT | 3
     push rax # CS
     push r15 # Function to run
+
+    # Set the registers for userspace
+    mov rdi, r13 # argc
+    mov rsi, r14 # argv / userstack
 
     # Clear all registers
     xor rax, rax
     xor rbx, rbx
     xor rcx, rcx
     xor rdx, rdx
-    xor rdi, rdi
-    xor rsi, rsi
     xor rbp, rbp
     xor r8, r8
     xor r9, r9

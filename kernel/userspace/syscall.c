@@ -13,28 +13,14 @@
 extern void syscall_handler_asm(void);
 
 /**
- * The IA32_STAR MSR has this layout
- */
-struct msr_ia32_star {
-  uint64_t reserved : 32;
-  uint64_t kernel_segment : 16;
-  uint64_t user_segment : 16;
-};
-
-/**
  * Initialize the CPU in a way that it accepts syscalls from userspace
  */
 void syscall_init(void) {
   // Enable syscall
   wrmsr(IA32_EFER, rdmsr(IA32_EFER) | 1);
   // Set CS/SS of kernel/user space
-  struct msr_ia32_star segments = {
-      .reserved = 0,
-      .kernel_segment = GDT_KERNEL_CODE_SEGMENT,
-      // For 64bit apps, CS is loaded from STAR[63:48] + 16
-      .user_segment = GDT_USER_DATA_SEGMENT - 8,
-  };
-  wrmsr(IA32_STAR, *(uint64_t *)&segments);
+  wrmsr(IA32_STAR, (uint64_t)GDT_KERNEL_CODE_SEGMENT << 32 |
+                       ((uint64_t)GDT_USER_DATA_SEGMENT - 8) << 48);
   // Set the address to jump to
   wrmsr(IA32_LSTAR, (uint64_t)syscall_handler_asm);
   // Mask just like Linux kernel:
@@ -47,20 +33,21 @@ void syscall_init(void) {
 /**
  * The entry point of the syscall for each process.
  */
-uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2, uint64_t a3) {
+uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2,
+                   uint64_t a3) {
   switch (syscall_number) {
   case SYSCALL_READ:
-    return sys_read((int) a1, (char *) a2, (size_t) a3);
+    return sys_read((int)a1, (char *)a2, (size_t)a3);
   case SYSCALL_WRITE:
-    return sys_write((int) a1, (const char *) a2, (size_t) a3);
+    return sys_write((int)a1, (const char *)a2, (size_t)a3);
   case SYSCALL_OPEN:
-    return sys_open((const char *) a1, (uint32_t) a2);
+    return sys_open((const char *)a1, (uint32_t)a2);
   case SYSCALL_CLOSE:
     break;
   case SYSCALL_BRK:
     break;
   case SYSCALL_EXEC:
-    proc_exec((const char *) a1, (const char **) a2);
+    proc_exec((const char *)a1, (const char **)a2);
     break;
   case SYSCALL_EXIT:
     break;

@@ -1,4 +1,5 @@
 #include "exec.h"
+#include "common/lib.h"
 #include "common/printf.h"
 #include "cpu/asm.h"
 #include "fs/fs.h"
@@ -6,6 +7,7 @@
 #include "mem/vmm.h"
 #include "userspace/proc.h"
 
+#define MAX_ARGV 64           // Maximum arguments of a program
 #define ELF_MAGIC 0x464C457FU // "\x7FELF" in little endian
 
 // File header
@@ -139,15 +141,33 @@ uint64_t proc_exec(const char *path, const char *args[]) {
   // space temporary
   install_pagetable(V2P(proc->pagetable));
   // Write the arguments to the user stack
-  // TODO:
+  uint64_t rsp = USER_STACK_TOP;
+  uint64_t argument_pointers[MAX_ARGV] = {0};
+  int argc = 0;
+  if (args != NULL) {
+    for (; argc < MAX_ARGV && args[argc] != NULL; argc++) {
+      size_t argument_length = strlen(args[argc]);
+      rsp -= argument_length + 1; // len of the string push the null terminator
+      memcpy((void *)rsp, args[argc], argument_length + 1);
+      argument_pointers[argc] = rsp;
+    }
+  }
+  rsp -= 8;
+  *(uint64_t *)rsp = 0; // Null terminator of the argv
+  for (int i = argc - 1; i > 0; i--) {
+    rsp -= 8;
+    *(uint64_t *)rsp = argument_pointers[i];
+  }
+  rsp -= rsp % 16; // Stack alignment
 
   // Write the initial context to the interrupt stack
   *(struct process_context *)(INTSTACK_VIRTUAL_ADDRESS_TOP -
                               sizeof(struct process_context)) =
       (struct process_context){
           .return_address = (uint64_t)jump_to_ring3,
-          .r14 = USER_STACK_TOP, // TODO: Add the arguments as well
-          .r15 = elf.entry,      // _start of the program
+          .r13 = (uint64_t)argc,
+          .r14 = rsp,       // Initial stack pointer / argv
+          .r15 = elf.entry, // _start of the program
       };
   proc->resume_stack_pointer =
       INTSTACK_VIRTUAL_ADDRESS_TOP - sizeof(struct process_context);
