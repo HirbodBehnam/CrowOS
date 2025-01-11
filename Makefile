@@ -1,3 +1,6 @@
+# Use bash because why not?
+SHELL:=/bin/bash
+
 # We have to types of stuff: Kernel and user programs
 K=kernel
 U=user
@@ -25,22 +28,13 @@ CFLAGS = -Wall \
 	-mno-sse \
 	-mno-sse2 \
 	-mno-red-zone \
-	-mcmodel=kernel \
 	-masm=intel \
 	-D__CROWOS__ \
-
-CFLAGS += -Ikernel
-CFLAGS += -ggdb -gdwarf-2 -O0
-
-ASFLAGS = -Ikernel
-
-KLDFLAGS = -m elf_x86_64 \
-	-nostdlib \
-	-static \
-	-z max-page-size=0x1000
+	-ggdb -gdwarf-2 \
+	-O0 \
 
 # Kernel compiling
-OBJS=$K/init.o \
+KOBJS=$K/init.o \
 	$K/common/lib.o \
 	$K/common/printf.o \
 	$K/common/sleeplock.o \
@@ -67,20 +61,42 @@ OBJS=$K/init.o \
 	$K/userspace/syscall.o \
 	$F/crowfs.o \
 
-UPROGS=\
-	$U/_init\
-# Compile with gcc -static -nostdlib prog.S -o _prg
+LDFLAGS = -m elf_x86_64 \
+	-nostdlib \
+	-static \
+	-z max-page-size=0x1000
+# Target specific variables https://stackoverflow.com/a/1305879/4213397
+$(KOBJS): CFLAGS+=-Ikernel -mcmodel=kernel
+$(KOBJS): ASFLAGS+=-Ikernel
 
-$K/kernel: $(OBJS) $K/linker.ld
-	$(LD) $(KLDFLAGS) -T $K/linker.ld -o $K/kernel $(OBJS) 
+$K/kernel: $(KOBJS) $K/linker.ld
+	$(LD) $(LDFLAGS) -T $K/linker.ld -o $@ $(KOBJS) 
 
 $K/cpu/isr.S: $K/cpu/isr.sh
-	./$K/cpu/isr.sh > $K/cpu/isr.S
+	$K/cpu/isr.sh > $K/cpu/isr.S
 
 # Create the CrowFS interactor to create file system and manipulate
 # files via a command line
 $F/crowfs: $F/crowfs.c $F/main.c
 	gcc -O2 -o $F/crowfs $F/crowfs.c $F/main.c
+
+# Userspace
+# Create the syscall assembly file
+$U/usyscalls.S: $U/usyscalls.sh
+	$U/usyscalls.sh > $U/usyscalls.S
+# Define the userspace libraries
+ULIB = $U/ulib.o $U/usyscalls.o
+$(ULIB): CFLAGS+=-Iuser
+$(ULIB): ASFLAGS+=-Iuser
+# User programs
+UPROGS=$U/_init \
+	$U/_echo
+
+_%: CFLAGS+=-Iuser
+_%: ASFLAGS+=-Iuser
+# Compile the user programs and the libraries
+_%: %.o $(ULIB)
+	$(LD) $(LDFLAGS) -T $U/linker.ld -o $@ $^
 
 # Creating the bootable image
 boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI $F/crowfs $(UPROGS)
@@ -98,7 +114,9 @@ boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI $F/crowfs $(UPROGS)
 	sudo losetup --partscan /dev/loop0 boot/disk.img
 	sudo $F/crowfs /dev/loop0p2 new
 # Copy the user programs
-	sudo $F/crowfs /dev/loop0p2 copyin $U/_init /init
+	for prog in $(UPROGS); do \
+		sudo $F/crowfs /dev/loop0p2 copyin $$prog /$$(cut -d _ -f 2 <<< $$prog) ; \
+	done
 # Unmount the OS partition
 	sudo losetup -d /dev/loop0
 

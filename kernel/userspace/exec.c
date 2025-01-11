@@ -154,18 +154,20 @@ uint64_t proc_exec(const char *path, const char *args[]) {
   }
   rsp -= 8;
   *(uint64_t *)rsp = 0; // Null terminator of the argv
-  for (int i = argc - 1; i > 0; i--) {
+  for (int i = argc - 1; i >= 0; i--) {
     rsp -= 8;
     *(uint64_t *)rsp = argument_pointers[i];
   }
-  rsp -= rsp % 16; // Stack alignment
+  uint64_t argv = rsp;
+  rsp -= rsp % 16 + 8; // Stack alignment
 
   // Write the initial context to the interrupt stack
   *(struct process_context *)(INTSTACK_VIRTUAL_ADDRESS_TOP -
                               sizeof(struct process_context)) =
       (struct process_context){
           .return_address = (uint64_t)jump_to_ring3,
-          .r13 = (uint64_t)argc,
+          .r12 = (uint64_t)argc,
+          .r13 = argv,
           .r14 = rsp,       // Initial stack pointer / argv
           .r15 = elf.entry, // _start of the program
       };

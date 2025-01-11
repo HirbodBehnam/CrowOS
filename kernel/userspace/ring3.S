@@ -7,7 +7,7 @@
 .type jump_to_ring3, @function
 # Jumps to ring3 for the first time of running a program.
 # The pagetable of the process must be installed before calling
-# this function. The prototype is void jump_to_ring3(uint64_t rsp, uint64_t _start, int argc)
+# this function. The prototype is void jump_to_ring3(uint64_t rsp, uint64_t _start, int argc, char *argv[])
 # which rsp is the initial stack pointer and the _start is the code address
 # which we should jump to.
 # However there is a very strange thing about this function: The calling convention.
@@ -15,8 +15,8 @@
 # function is from a context_switch, we do not control rdi and rsi. But we do control
 # callee saved registers such as r14 and r15. And thus, we exactly use r14 and r15
 # for the rsp value and the _start address.
-# argc is passed to the user program. It shall be put in r13.
-# You might wonder, what about argv? Lemme tell you. argv is the rsp!
+# argc and argv are passed to the user program. They shall be put in r12 and r13 respectively.
+# rsp must have the remainder of 8 when divided by 16
 jump_to_ring3:
     # Setup the data segments
     mov rax, GDT_USER_DATA_SEGMENT | 3
@@ -35,8 +35,8 @@ jump_to_ring3:
     push r15 # Function to run
 
     # Set the registers for userspace
-    mov rdi, r13 # argc
-    mov rsi, r14 # argv / userstack
+    mov rdi, r12 # argc
+    mov rsi, r13 # argv / userstack
 
     # Clear all registers
     xor rax, rax

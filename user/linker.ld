@@ -1,5 +1,9 @@
 OUTPUT_FORMAT(elf64-x86-64)
 
+# I think i have to define this in order to start
+# from the ulib.c _start instead of the main function
+ENTRY(_start)
+
 SECTIONS
 {
   . = 0x400000;

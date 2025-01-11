@@ -98,7 +98,8 @@ int proc_allocate_fd(void) {
  * Setup the scheduler by creating a process which runs as the very program
  */
 void scheduler_init(void) {
-  if (proc_exec("/init", NULL) == (uint64_t)-1)
+  const char *args[] = {"/init", "hello", "userspace!", NULL};
+  if (proc_exec("/init", args) == (uint64_t)-1)
     panic("cannot create /init process");
   kprintf("Initialized first userprog\n");
 }

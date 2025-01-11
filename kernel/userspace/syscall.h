@@ -7,4 +7,6 @@
 #define SYSCALL_EXIT  6
 #define SYSCALL_WAIT  7
 
+#ifndef __ASSEMBLER__
 void syscall_init(void);
+#endif

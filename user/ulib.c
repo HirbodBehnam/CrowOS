@@ -1,10 +1,24 @@
-#include "lib.h"
+#include "ulib.h"
+#include "../kernel/fs/file.h"
+#include "usyscalls.h"
+#include <stdint.h>
 
-// GCC and Clang reserve the right to generate calls to the following
-// 4 functions even if they are not directly called.
-// Implement them as the C specification mandates.
-// DO NOT remove or rename these functions, or stuff will eventually break!
-// They CAN be moved to a different .c file.
+// The serial port file descriptor
+int serial_fd;
+
+/**
+ * Setup the serial port for this program. This basically
+ * is just opening the serial device as a file and setting the result
+ * to the serial_fd global variable.
+ */
+static void setup_serial_port(void) { serial_fd = open("serial", O_DEVICE); }
+
+void _start(int argc, char *argv[]) {
+  setup_serial_port();
+  extern int main(int argc, char *argv[]);
+  exit(main(argc, argv));
+}
+
 void *memcpy(void *dest, const void *src, size_t n) {
   uint8_t *pdest = (uint8_t *)dest;
   const uint8_t *psrc = (const uint8_t *)src;
@@ -74,5 +88,42 @@ size_t strlen(const char *s) {
 
   for (n = 0; s[n]; n++)
     ;
+  return n;
+}
+
+char *strchr(const char *s, char c) {
+  for (; *s; s++)
+    if (*s == c)
+      return (char *)s;
+  return 0;
+}
+
+void puts(const char *s) {
+  for (; *s; s++)
+    write(serial_fd, s, 1);
+  const char new_line = '\n';
+  write(serial_fd, &new_line, 1);
+}
+
+char *gets(char *buf, int max) {
+  int i, cc;
+  char c;
+
+  for (i = 0; i + 1 < max;) {
+    cc = read(0, &c, 1);
+    if (cc < 1)
+      break;
+    buf[i++] = c;
+    if (c == '\n' || c == '\r')
+      break;
+  }
+  buf[i] = '\0';
+  return buf;
+}
+
+int atoi(const char *s) {
+  int n = 0;
+  while ('0' <= *s && *s <= '9')
+    n = n * 10 + *s++ - '0';
   return n;
 }
