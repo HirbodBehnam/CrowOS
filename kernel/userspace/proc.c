@@ -2,6 +2,7 @@
 #include "common/printf.h"
 #include "cpu/asm.h"
 #include "cpu/smp.h"
+#include "fs/fs.h"
 #include "userspace/exec.h"
 
 /**
@@ -61,12 +62,13 @@ struct process *proc_allocate(void) {
     return NULL;
   // Make it usable
   p->state = USED;
-  p->pid = get_next_pid();
-  p->pagetable = vmm_create_user_pagetable();
+  p->pagetable = vmm_user_pagetable_new();
   if (p->pagetable == NULL) { // well shit
     p->state = UNUSED;
     return NULL;
   }
+  p->pid = get_next_pid();
+  p->exit_status = -1;
   return p;
 }
 
@@ -95,6 +97,30 @@ int proc_allocate_fd(void) {
 }
 
 /**
+ * Exits from the current process ans switches back to the scheduler
+ */
+void proc_exit(int exit_code) {
+  struct process *proc = my_process();
+
+  // Close all files
+  for (int i = 0; i < MAX_OPEN_FILES; i++) {
+    if (proc->open_files[i].type == FD_INODE) {
+      fs_close(proc->open_files[i].structures.inode);
+      proc->open_files[i].type = FD_EMPTY; // I don't think I need this
+    }
+  }
+  
+  // Set the exit status
+  proc->exit_status = exit_code;
+  // TODO: wake up the waiters
+
+  // Set the status to the exited and return back
+  proc->state = EXITED;
+  scheduler_switch_back();
+  panic("proc_exit: scheduler returned");
+}
+
+/**
  * Setup the scheduler by creating a process which runs as the very program
  */
 void scheduler_init(void) {
@@ -120,16 +146,28 @@ void scheduler_switch_back(void) {
 void scheduler(void) {
   for (;;) {                                     // forever...
     for (size_t i = 0; i < MAX_PROCESSES; i++) { // look for processes...
-      if (__sync_val_compare_and_swap(&processes[i].state, RUNNABLE,
-                                      RUNNING)) { // which are runnable...
+      switch (processes[i].state) {
+      case RUNNABLE:
+        processes[i].state = RUNNING; // which are runnable...
         // and make them running and when found
         running_process[get_processor_id()] = &processes[i];
         // switch to its memory space...
         install_pagetable(V2P(processes[i].pagetable));
         // and run it...
-        context_switch(processes->resume_stack_pointer, &kernel_stackpointer);
+        context_switch(processes[i].resume_stack_pointer, &kernel_stackpointer);
         running_process[get_processor_id()] = NULL;
         // until we return and we do everything again!
+        break;
+      case EXITED:
+        // If the pagetable of this process is installed, unload it
+        if (get_installed_pagetable() == V2P(processes[i].pagetable))
+          install_pagetable(V2P(kernel_pagetable));
+        // Free the memory of the process
+        vmm_user_pagetable_free(processes[i].pagetable);
+        processes[i].state = UNUSED;
+        break;
+      default:
+        break;
       }
     }
   }

@@ -13,7 +13,7 @@
 /**
  * Rounds a size to the nearest page size
  */
-#define PAGE_ROUND_UP(sz)  (((sz)+PAGE_SIZE-1) & ~(PAGE_SIZE-1))
+#define PAGE_ROUND_UP(sz) (((sz)+PAGE_SIZE-1) & ~(PAGE_SIZE-1))
 
 #ifndef __ASSEMBLER__
 /**

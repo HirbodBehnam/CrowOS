@@ -36,7 +36,7 @@ jump_to_ring3:
 
     # Set the registers for userspace
     mov rdi, r12 # argc
-    mov rsi, r13 # argv / userstack
+    mov rsi, r13 # argv
 
     # Clear all registers
     xor rax, rax

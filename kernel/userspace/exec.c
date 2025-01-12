@@ -1,7 +1,6 @@
 #include "exec.h"
 #include "common/lib.h"
 #include "common/printf.h"
-#include "cpu/asm.h"
 #include "fs/fs.h"
 #include "mem/mem.h"
 #include "mem/vmm.h"
@@ -102,7 +101,6 @@ uint64_t proc_exec(const char *path, const char *args[]) {
   struct ProgramHeader ph;
   struct process *proc = NULL;
   struct fs_inode *proc_inode = NULL;
-  uint64_t current_pagetable = get_installed_pagetable();
   // Open the file
   proc_inode = fs_open(path, 0);
   if (proc_inode == NULL) // not found?
@@ -137,9 +135,6 @@ uint64_t proc_exec(const char *path, const char *args[]) {
         0)
       goto bad;
   }
-  // Setup the context of the new process by switching to its address
-  // space temporary
-  install_pagetable(V2P(proc->pagetable));
   // Write the arguments to the user stack
   uint64_t rsp = USER_STACK_TOP;
   uint64_t argument_pointers[MAX_ARGV] = {0};
@@ -148,34 +143,37 @@ uint64_t proc_exec(const char *path, const char *args[]) {
     for (; argc < MAX_ARGV && args[argc] != NULL; argc++) {
       size_t argument_length = strlen(args[argc]);
       rsp -= argument_length + 1; // len of the string push the null terminator
-      memcpy((void *)rsp, args[argc], argument_length + 1);
+      vmm_memcpy(proc->pagetable, rsp, args[argc], argument_length + 1, true);
       argument_pointers[argc] = rsp;
     }
   }
   rsp -= 8;
-  *(uint64_t *)rsp = 0; // Null terminator of the argv
+  // Null terminator of the argv
+  const uint64_t zero = 0;
+  vmm_memcpy(proc->pagetable, rsp, &zero, sizeof(uint64_t), true);
   for (int i = argc - 1; i >= 0; i--) {
     rsp -= 8;
-    *(uint64_t *)rsp = argument_pointers[i];
+    vmm_memcpy(proc->pagetable, rsp, &argument_pointers[i], sizeof(uint64_t),
+               true);
   }
   uint64_t argv = rsp;
   rsp -= rsp % 16 + 8; // Stack alignment
 
   // Write the initial context to the interrupt stack
-  *(struct process_context *)(INTSTACK_VIRTUAL_ADDRESS_TOP -
-                              sizeof(struct process_context)) =
-      (struct process_context){
-          .return_address = (uint64_t)jump_to_ring3,
-          .r12 = (uint64_t)argc,
-          .r13 = argv,
-          .r14 = rsp,       // Initial stack pointer / argv
-          .r15 = elf.entry, // _start of the program
-      };
+  const struct process_context initial_context = {
+      .return_address = (uint64_t)jump_to_ring3,
+      .r12 = (uint64_t)argc,
+      .r13 = argv,
+      .r14 = rsp,       // Initial stack pointer / argv
+      .r15 = elf.entry, // _start of the program
+  };
+  vmm_memcpy(proc->pagetable,
+             INTSTACK_VIRTUAL_ADDRESS_TOP - sizeof(struct process_context),
+             &initial_context, sizeof(initial_context), false);
   proc->resume_stack_pointer =
       INTSTACK_VIRTUAL_ADDRESS_TOP - sizeof(struct process_context);
 
   // We are fucking done!
-  install_pagetable(current_pagetable); // switch back to page table before
   fs_close(proc_inode);
   proc->state = RUNNABLE; // now we can run this!
   return proc->pid;
@@ -183,10 +181,8 @@ bad:
   if (proc_inode != NULL) // close the file
     fs_close(proc_inode);
   if (proc != NULL) {
+    vmm_user_pagetable_free(proc->pagetable);
     proc->state = UNUSED;
-    // TODO: The page table?
   }
-  // TODO: unmap/deallocate the pages allocated
-  install_pagetable(current_pagetable); // switch back to page table before
   return -1;
 }

@@ -22,11 +22,11 @@ interrupt_handler_asm:
 	push gs
 	# Move to kernel space
 	mov ax, GDT_KERNEL_DATA_SEGMENT
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-    mov ss, ax
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	mov gs, ax
+	mov ss, ax
 	# Align the stack using the rbp
 	push rbp
 	mov rbp, rsp # RBP is callee saved

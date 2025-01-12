@@ -30,15 +30,15 @@
  * Note that this returns the physical address and later should be converted
  * to virtual address.
  */
-static inline pagetable_t pte_follow(struct pte_t pte) {
-  return (pagetable_t)((uint64_t)pte.address << 12);
+static inline void *pte_follow(struct pte_t pte) {
+  return (void *)((uint64_t)pte.address << 12);
 }
 
 /**
  * The kernel pagetable which Limine sets up for us. This is in virtual
  * address space.
  */
-static pagetable_t kernel_pagetable;
+pagetable_t kernel_pagetable;
 
 /**
  * kernel address which we got from limine
@@ -225,6 +225,8 @@ int vmm_allocate(pagetable_t pagetable, uint64_t va, uint64_t size,
     pte->xd = !permissions.executable;
     pte->us = permissions.userspace;
     pte->address = PTE_GET_PHY_ADDRESS(V2P(frame));
+    // Clear the allocated page
+    memset(frame, 0, PAGE_SIZE);
   }
   return 0;
 }
@@ -275,7 +277,7 @@ void *vmm_io_memmap(uint64_t pa, uint64_t size) {
  * allocates trap pages and the kernel address space. However, a single stack
  * page is allocated.
  */
-pagetable_t vmm_create_user_pagetable() {
+pagetable_t vmm_user_pagetable_new() {
   // Allocate a pagetable to be our result
   pagetable_t pagetable = (pagetable_t)kalloc();
   if (pagetable == NULL)
@@ -293,7 +295,6 @@ pagetable_t vmm_create_user_pagetable() {
   if ((syscall_stack = kalloc()) == NULL)
     goto failed;
   // Map pages
-  // TODO: later map trampoline?
   vmm_map_pages(
       pagetable, USER_STACK_BOTTOM, PAGE_SIZE, V2P(user_stack),
       (pte_permissions){.writable = 1, .executable = 0, .userspace = 1});
@@ -315,4 +316,103 @@ failed:
   if (syscall_stack != NULL)
     kfree(syscall_stack);
   return NULL;
+}
+
+/**
+ * Recursively deletes the frames of the userspace of a page table.
+ * The initial call to this function must be like this:
+ * vmm_user_pagetable_free_recursive(pagetable, 0, 3);
+ * This is because that the paging in the
+ */
+static void vmm_user_pagetable_free_recursive(pagetable_t pagetable,
+                                              const uint64_t initial_va,
+                                              int level) {
+  // We shall free the frame at last
+  if (level == 0) {
+    // Note: Pagetable here is not actually a pagetable; Instead,
+    // it's the data frame which the virtual address resolves to.
+    kfree(pagetable);
+    return;
+  }
+  // Check each entry of the page table
+  for (size_t i = 0; i < PAGETABLE_PTE_COUNT; i++) {
+    const struct pte_t pte = pagetable[i];
+    if (pte.present) {
+      if (pte.huge_page) // We don't deal with huge pages now
+        panic("vmm_user_pagetable_free_recursive: huge page");
+      // Create the partial va address from steps
+      // The va is inclusive. Low is inclusive but high is exclusive.
+      const uint64_t current_va_low = initial_va | (i << (level * 9 + 12));
+      const uint64_t current_va_high =
+          initial_va | ((i + 1) << (level * 9 + 12));
+      // If the range of the va is outside the userspace addresses,
+      // then we can safely just ignore this entry and its parents
+      // because they are in the kernel virtual space.
+      // However, if even one of the ends are in the userspace range,
+      // we shall descend into lower pages.
+      if ((current_va_high >= VA_MAX && current_va_low >= VA_MAX) ||
+          (current_va_high < VA_MIN && current_va_low < VA_MIN))
+        continue;
+      // We shall descend lower
+      const pagetable_t src_inner_pagetable = (pagetable_t)P2V(pte_follow(pte));
+      vmm_user_pagetable_free_recursive(src_inner_pagetable, current_va_low,
+                                        level - 1);
+    }
+  }
+  // Remove the pagetable as well
+  kfree(pagetable);
+}
+
+/**
+ * Frees all pages of a user program from a pagetable.
+ * After that, the page table pages are also deleted.
+ */
+void vmm_user_pagetable_free(pagetable_t pagetable) {
+  // At first free the pages related to user stack, interrupt stack and
+  // syscall stack
+  uint64_t stack;
+  stack = vmm_walkaddr(pagetable, USER_STACK_BOTTOM, true);
+  if (stack == 0)
+    panic("vmm_user_pagetable_free: user stack");
+  kfree((void *)P2V(stack));
+  stack = vmm_walkaddr(pagetable, INTSTACK_VIRTUAL_ADDRESS_BOTTOM, false);
+  if (stack == 0)
+    panic("vmm_user_pagetable_free: interrupt stack");
+  kfree((void *)P2V(stack));
+  stack = vmm_walkaddr(pagetable, SYSCALLSTACK_VIRTUAL_ADDRESS_BOTTOM, false);
+  if (stack == 0)
+    panic("vmm_user_pagetable_free: syscall stack");
+  kfree((void *)P2V(stack));
+  // Now we have to recursively look at any page between VA_MAX and VA_MIN
+  vmm_user_pagetable_free_recursive(pagetable, 0, 3);
+}
+
+/**
+ * Copies data to pages of a page table without switching the page table by
+ * walking through the given page table.
+ *
+ * Returns 0 if successful, -1 if failed (invalid virtual address for example)
+ */
+int vmm_memcpy(pagetable_t pagetable, uint64_t destination_virtual_address,
+               const void *source, size_t len, bool userspace) {
+  while (len > 0) {
+    // Look for the bottom of the page address
+    uint64_t va0 = PAGE_ROUND_DOWN(destination_virtual_address);
+    if (va0 >= VA_MAX || va0 < VA_MIN)
+      return -1;
+    // Find the page table entry
+    struct pte_t *pte = walk(pagetable, va0, false, false);
+    if (pte == 0 || !pte->present || pte->us != userspace || !pte->rw)
+      return -1; // invalid page
+    uint64_t pa0 = P2V(pte_follow(*pte));
+    uint64_t n = PAGE_SIZE - (destination_virtual_address - va0);
+    if (n > len)
+      n = len;
+    memmove((void *)(pa0 + (destination_virtual_address - va0)), source, n);
+
+    len -= n;
+    source += n;
+    destination_virtual_address = va0 + PAGE_SIZE;
+  }
+  return 0;
 }

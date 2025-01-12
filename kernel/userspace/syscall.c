@@ -3,6 +3,7 @@
 #include "cpu/gdt.h"
 #include "fs/syscall.h"
 #include "userspace/exec.h"
+#include "userspace/proc.h"
 
 #define IA32_EFER 0xC0000080
 #define IA32_STAR 0xC0000081
@@ -47,10 +48,9 @@ uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2,
   case SYSCALL_BRK:
     break;
   case SYSCALL_EXEC:
-    proc_exec((const char *)a1, (const char **)a2);
-    break;
+    return proc_exec((const char *)a1, (const char **)a2);
   case SYSCALL_EXIT:
-    break;
+    proc_exit((int)a1);
   case SYSCALL_WAIT:
     break;
 

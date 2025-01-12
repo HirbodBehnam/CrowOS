@@ -110,6 +110,8 @@ _Static_assert(sizeof(struct pte_t) == 8, "Each PTE must be 8 bytes");
  */
 typedef struct pte_t *pagetable_t;
 
+extern pagetable_t kernel_pagetable;
+
 void vmm_init_kernel(const struct limine_kernel_address_response);
 uint64_t vmm_walkaddr(pagetable_t pagetable, uint64_t va, bool user);
 int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
@@ -117,5 +119,8 @@ int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
 int vmm_allocate(pagetable_t pagetable, uint64_t va, uint64_t size,
                  pte_permissions permissions);
 void *vmm_io_memmap(uint64_t pa, uint64_t size);
-pagetable_t vmm_create_user_pagetable();
+pagetable_t vmm_user_pagetable_new();
+void vmm_user_pagetable_free(pagetable_t pagetable);
+int vmm_memcpy(pagetable_t pagetable, uint64_t destination_virtual_address,
+               const void *source, size_t len, bool userspace);
 #endif
