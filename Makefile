@@ -35,9 +35,9 @@ CFLAGS = -Wall \
 
 # Kernel compiling
 KOBJS=$K/init.o \
+	$K/common/condvar.o \
 	$K/common/lib.o \
 	$K/common/printf.o \
-	$K/common/sleeplock.o \
 	$K/common/spinlock.o \
 	$K/cpu/gdt.o \
 	$K/cpu/idt.o \

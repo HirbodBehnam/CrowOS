@@ -12,12 +12,14 @@
 # which we should jump to.
 # However there is a very strange thing about this function: The calling convention.
 # We do not use SYS-V ABI to call this function. Because the entry point of this
-# function is from a context_switch, we do not control rdi and rsi. But we do control
+# function is from a context_switch, we do not control rdi nor rsi. But we do control
 # callee saved registers such as r14 and r15. And thus, we exactly use r14 and r15
 # for the rsp value and the _start address.
 # argc and argv are passed to the user program. They shall be put in r12 and r13 respectively.
 # rsp must have the remainder of 8 when divided by 16
+# This function also locks the my_process()->lock before jumping to userspace
 jump_to_ring3:
+    call my_process_unlock
     # Setup the data segments
     mov rax, GDT_USER_DATA_SEGMENT | 3
     mov ds, ax

@@ -11,8 +11,8 @@ Writing an operating system for x86_64 for fun on top of [Limine](https://github
     - [x] Cooperative scheduling
     - [x] Round robin scheduling
     - [ ] Wait
-    - [ ] Preemptive scheduling
     - [ ] Shell
+    - [ ] Preemptive scheduling
 - [ ] File System
     - [x] NVMe driver
     - [x] CrowFS file system
@@ -24,10 +24,12 @@ Writing an operating system for x86_64 for fun on top of [Limine](https://github
     - [ ] Folder creation
     - [ ] File removal
     - [ ] Rename
+    - [ ] Relative paths
 - [ ] CMOS RTC
-- [ ] Multiprocessor/SMP
 - [ ] VGA/Framebuffer
 - [ ] PS2 Keyboard Driver
+- [ ] Multiprocessor/SMP
+- [ ] DOOM
 
 ## Running
 

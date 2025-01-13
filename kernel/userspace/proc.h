@@ -1,4 +1,5 @@
 #pragma once
+#include "common/spinlock.h"
 #include "fs/file.h"
 #include "mem/vmm.h"
 #include <stddef.h>
@@ -38,20 +39,25 @@ struct process {
   uint64_t pid;
   // If we switch our stack pointer to this, we will resume the program
   uint64_t resume_stack_pointer;
-  // What is going on in this process?
-  enum process_state state;
   // The pagetable of this process
   pagetable_t pagetable;
   // Files open for this process. The index is the fd in the process.
   struct process_file open_files[MAX_OPEN_FILES];
+  // The spinlock which guards all variables below
+  struct spinlock lock;
+  // On what object are we waiting on?
+  void *waiting_channel;
   // The exit status of this application. Initial value is -1
   int exit_status;
+  // What is going on in this process?
+  enum process_state state;
 };
 
 struct process *my_process(void);
 struct process *proc_allocate(void);
+void proc_wakeup(void *waiting_channel, bool everyone);
 int proc_allocate_fd(void);
-void proc_exit(int exit_code) __attribute__ ((noreturn));
+void proc_exit(int exit_code) __attribute__((noreturn));
 void scheduler_init(void);
 void scheduler_switch_back(void);
 void scheduler(void);

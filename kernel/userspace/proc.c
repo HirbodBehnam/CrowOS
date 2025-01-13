@@ -47,21 +47,30 @@ extern void context_switch(uint64_t to_rsp, uint64_t *from_rsp);
 struct process *my_process(void) { return running_process[get_processor_id()]; }
 
 /**
+ * Unlocks the current running process's lock. This function
+ * is intended to be called from assembly function "jump_to_ring3".
+ */
+void my_process_unlock(void) { spinlock_unlock(&my_process()->lock); };
+
+/**
  * Allocate a new process. Will return NULL on error.
  */
 struct process *proc_allocate(void) {
   // Find a free process slot
   struct process *p = NULL;
   for (size_t i = 0; i < MAX_PROCESSES; i++) {
+    spinlock_lock(&processes[i].lock);
     if (processes[i].state == UNUSED) {
       p = &processes[i];
       break;
     }
+    spinlock_unlock(&processes[i].lock);
   }
   if (p == NULL) // no free slot
     return NULL;
   // Make it usable
   p->state = USED;
+  spinlock_unlock(&p->lock); // we can do an early unlock here probably
   p->pagetable = vmm_user_pagetable_new();
   if (p->pagetable == NULL) { // well shit
     p->state = UNUSED;
@@ -73,12 +82,31 @@ struct process *proc_allocate(void) {
 }
 
 /**
+ * Wakes up one or all processes which are waiting on a waiting channel
+ */
+void proc_wakeup(void *waiting_channel, bool everyone) {
+  bool done = false;
+  for (size_t i = 0; i < MAX_PROCESSES; i++) {
+    spinlock_lock(&processes[i].lock);
+    if (processes[i].state == SLEEPING &&
+        processes[i].waiting_channel == waiting_channel) {
+      processes[i].state = RUNNABLE;
+      // If we should wake up one thread only, then we are done
+      done = !everyone;
+    }
+    spinlock_unlock(&processes[i].lock);
+    if (done)
+      break;
+  }
+}
+
+/**
  * Allocates a file descriptor of the running process.
  * This function is not thread safe and a process shall not call this
  * function twice in two different threads.
  *
- * TODO: I can make this thread safe by adding a "USED" type for each
- * open file and change the type of each selected fd to USED. (like xv6)
+ * Note: Because there is only one thread per process, this function
+ * does not need any locks or whatsoever.
  */
 int proc_allocate_fd(void) {
   // This is OK to be not locked because each process is
@@ -109,7 +137,10 @@ void proc_exit(int exit_code) {
       proc->open_files[i].type = FD_EMPTY; // I don't think I need this
     }
   }
-  
+
+  // Lock the process to avoid race
+  spinlock_lock(&proc->lock);
+
   // Set the exit status
   proc->exit_status = exit_code;
   // TODO: wake up the waiters
@@ -134,10 +165,14 @@ void scheduler_init(void) {
  * Call this function from any interrupt or syscall in each user space
  * program in order to switch back to the scheduler and schedule any other
  * program. This is like the very bare bone of the yield function.
+ *
+ * Before calling this function, the caller should old the my_process()->lock
  */
 void scheduler_switch_back(void) {
-  context_switch(kernel_stackpointer,
-                 &running_process[get_processor_id()]->resume_stack_pointer);
+  struct process *proc = my_process();
+  if (!spinlock_locked(&proc->lock))
+    panic("scheduler_switch_back: not locked");
+  context_switch(kernel_stackpointer, &proc->resume_stack_pointer);
 }
 
 /**
@@ -146,6 +181,7 @@ void scheduler_switch_back(void) {
 void scheduler(void) {
   for (;;) {                                     // forever...
     for (size_t i = 0; i < MAX_PROCESSES; i++) { // look for processes...
+      spinlock_lock(&processes[i].lock);         // lock them to inspect them...
       switch (processes[i].state) {
       case RUNNABLE:
         processes[i].state = RUNNING; // which are runnable...
@@ -169,6 +205,7 @@ void scheduler(void) {
       default:
         break;
       }
+      spinlock_unlock(&processes[i].lock);
     }
   }
 }

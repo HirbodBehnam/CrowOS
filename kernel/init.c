@@ -108,7 +108,7 @@ void kmain(void) {
 
   // Load the IDT and enable interrupts on each core
   idt_load();
-  sti();
+  // DO NOT ENABLE INTERRUPTS! The kernel is not preemptible
 
   // Initialize syscall on each core
   syscall_init();
