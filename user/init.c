@@ -6,6 +6,10 @@ int main() {
   puts("Hello from userspace!");
   exec("/echo", args);
   puts("Ran echo!");
-  while (1)
-    yield();
+  char buffer[128];
+  while (1) {
+    gets(buffer, sizeof(buffer));
+    puts("Back from gets");
+    puts(buffer);
+  }
 }
