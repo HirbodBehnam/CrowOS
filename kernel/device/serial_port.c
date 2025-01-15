@@ -1,11 +1,20 @@
 // Mostly from https://wiki.osdev.org/Serial_Ports
 #include "serial_port.h"
+#include "common/condvar.h"
 #include "common/printf.h"
 #include "cpu/asm.h"
 #include "cpu/traps.h"
 #include "device/pic.h"
 
-#define PORT 0x3f8 // COM1
+#define PORT 0x3f8               // COM1
+#define SERIAL_BUFFER_LENGTH 128 // Length of the serial input ring buffer
+
+// A ring buffer for the unread input chars
+static char serial_input_buffer[SERIAL_BUFFER_LENGTH];
+// The head and the tail of the serial input buffer
+static uint8_t serial_input_buffer_read_index = 0,
+               serial_input_buffer_write_index = 0;
+static struct condvar serial_input_buffer_condvar;
 
 /**
  * Init serial will initialize the serial port for output and input.
@@ -81,12 +90,24 @@ char serial_getc(void) {
 }
 
 /**
- * Gets an input from the serial port and puts it back in the serial
- * port. It will also send end of interrupt to the local APIC.
+ * Must be called when the read interrupt of the serial port is received.
+ *
+ * Will try to put the read char inside the buffer however, there is possibility
+ * that the buffer is full. In this case, the value read will be discarded.
+ * It also echos back the char read to the user.
  */
-void serial_echo_back_char(void) {
+void serial_received_char(void) {
   char c = serial_getc();
-  serial_putc(c);
+  condvar_lock(&serial_input_buffer_condvar);
+  if ((serial_input_buffer_write_index + 1) % SERIAL_BUFFER_LENGTH !=
+      serial_input_buffer_read_index) {
+    // We have space in the buffer!
+    serial_input_buffer[serial_input_buffer_write_index] = c;
+    serial_input_buffer_write_index =
+        (serial_input_buffer_write_index + 1) % SERIAL_BUFFER_LENGTH;
+    serial_putc(c);
+  }
+  condvar_unlock(&serial_input_buffer_condvar);
   lapic_send_eoi();
 }
 
@@ -100,17 +121,34 @@ int serial_write(const char *buffer, size_t len) {
 }
 
 /**
- * Blocks and waits until one byte is read from the serial port.
- *
- * TODO: make this more versatile somehow? How does pintos/xv6 handle serial
- * port? Interrups? Busywait?
- * Also, we read a single byte. Is this fine?
+ * Blocks and waits until some bytes can be read from the serial port
+ * and returns the result.
  */
 int serial_read(char *buffer, size_t len) {
-  (void)buffer;
   // But why would anyone do this?
   if (len == 0)
     return 0;
-  // Wait for one char
-  panic("shash");
+  // Lock the input buffer
+  condvar_lock(&serial_input_buffer_condvar);
+  while (serial_input_buffer_read_index == serial_input_buffer_write_index)
+    condvar_wait(&serial_input_buffer_condvar); // empty buffer so wait
+  size_t available_bytes;
+  if (serial_input_buffer_write_index <
+      serial_input_buffer_read_index) { // ring overflow
+    available_bytes = serial_input_buffer_write_index +
+                      (SERIAL_BUFFER_LENGTH - serial_input_buffer_read_index);
+  } else {
+    available_bytes =
+        serial_input_buffer_write_index - serial_input_buffer_read_index;
+  }
+  size_t to_read_bytes = len > available_bytes ? available_bytes : len;
+  // Now read bytes one by one
+  for (size_t i = 0; i < to_read_bytes; i++) {
+    buffer[i] = serial_input_buffer[serial_input_buffer_read_index];
+    serial_input_buffer_read_index =
+        (serial_input_buffer_read_index + 1) % SERIAL_BUFFER_LENGTH;
+  }
+  // We are done!
+  condvar_unlock(&serial_input_buffer_condvar);
+  return to_read_bytes;
 }

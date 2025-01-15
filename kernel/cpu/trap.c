@@ -12,7 +12,7 @@ void handle_trap(uint64_t irq, uint64_t error_code) {
   (void)error_code;
   switch (irq) {
   case T_IRQ0 + IRQ_COM1:
-    serial_echo_back_char();
+    serial_received_char();
     break;
   case T_YEILD: {
     struct process *proc = my_process();
