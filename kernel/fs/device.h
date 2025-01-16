@@ -16,5 +16,6 @@ struct device {
   int (*lseek)(int64_t, int);
 };
 
+int device_index(const char *name);
 int device_open(const char *name);
 struct device *device_get(int index);

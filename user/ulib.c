@@ -1,20 +1,12 @@
 #include "ulib.h"
-#include "../kernel/fs/file.h"
+#include "include/file.h"
 #include "usyscalls.h"
 #include <stdint.h>
 
-// The serial port file descriptor
-int serial_fd;
-
-/**
- * Setup the serial port for this program. This basically
- * is just opening the serial device as a file and setting the result
- * to the serial_fd global variable.
- */
-static void setup_serial_port(void) { serial_fd = open("serial", O_DEVICE); }
+// Default file descriptors used in Linux
+int stdin = DEFAULT_STDIN, stdout = DEFAULT_STDOUT, stderr = DEFAULT_STDERR;
 
 void _start(int argc, char *argv[]) {
-  setup_serial_port();
   extern int main(int argc, char *argv[]);
   exit(main(argc, argv));
 }
@@ -100,9 +92,9 @@ char *strchr(const char *s, char c) {
 
 void puts(const char *s) {
   for (; *s; s++)
-    write(serial_fd, s, 1);
+    write(stdout, s, 1);
   const char new_line = '\n';
-  write(serial_fd, &new_line, 1);
+  write(stdout, &new_line, 1);
 }
 
 char *gets(char *buf, int max) {
@@ -110,7 +102,7 @@ char *gets(char *buf, int max) {
   char c;
 
   for (i = 0; i + 1 < max;) {
-    cc = read(0, &c, 1);
+    cc = read(stdin, &c, 1);
     if (cc < 1)
       break;
     buf[i++] = c;
@@ -121,9 +113,7 @@ char *gets(char *buf, int max) {
   return buf;
 }
 
-void putchar(char c) {
-  write(serial_fd, &c, 1);
-}
+void putchar(char c) { write(stdout, &c, 1); }
 
 int atoi(const char *s) {
   int n = 0;

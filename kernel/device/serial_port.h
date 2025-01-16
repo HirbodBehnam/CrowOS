@@ -1,5 +1,7 @@
 #include <stddef.h>
 
+#define SERIAL_DEVICE_NAME "serial"
+
 int serial_init(void);
 void serial_init_interrupt(void);
 void serial_putc(char a);

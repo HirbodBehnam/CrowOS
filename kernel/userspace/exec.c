@@ -1,7 +1,10 @@
 #include "exec.h"
 #include "common/lib.h"
 #include "common/printf.h"
+#include "device/serial_port.h"
+#include "fs/device.h"
 #include "fs/fs.h"
+#include "include/file.h"
 #include "mem/mem.h"
 #include "mem/vmm.h"
 #include "userspace/proc.h"
@@ -172,6 +175,28 @@ uint64_t proc_exec(const char *path, const char *args[]) {
              &initial_context, sizeof(initial_context), false);
   proc->resume_stack_pointer =
       INTSTACK_VIRTUAL_ADDRESS_TOP - sizeof(struct process_context);
+
+  // Open stdin, stdout, stderr
+  // Because all of them are just serial port, we can assign
+  // the serial port device index to all of them.
+  int serial_device_index = device_index(SERIAL_DEVICE_NAME);
+  if (serial_device_index == -1)
+    panic("exec: no serial");
+  proc->open_files[DEFAULT_STDIN].type = FD_DEVICE;
+  proc->open_files[DEFAULT_STDIN].structures.device = serial_device_index;
+  proc->open_files[DEFAULT_STDIN].offset = 0;
+  proc->open_files[DEFAULT_STDIN].readble = true;
+  proc->open_files[DEFAULT_STDIN].writable = false;
+  proc->open_files[DEFAULT_STDOUT].type = FD_DEVICE;
+  proc->open_files[DEFAULT_STDOUT].structures.device = serial_device_index;
+  proc->open_files[DEFAULT_STDOUT].offset = 0;
+  proc->open_files[DEFAULT_STDOUT].readble = false;
+  proc->open_files[DEFAULT_STDOUT].writable = true;
+  proc->open_files[DEFAULT_STDERR].type = FD_DEVICE;
+  proc->open_files[DEFAULT_STDERR].structures.device = serial_device_index;
+  proc->open_files[DEFAULT_STDERR].offset = 0;
+  proc->open_files[DEFAULT_STDERR].readble = false;
+  proc->open_files[DEFAULT_STDERR].writable = true;
 
   // We are fucking done!
   fs_close(proc_inode);

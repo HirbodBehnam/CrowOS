@@ -66,8 +66,8 @@ LDFLAGS = -m elf_x86_64 \
 	-static \
 	-z max-page-size=0x1000
 # Target specific variables https://stackoverflow.com/a/1305879/4213397
-$(KOBJS): CFLAGS+=-Ikernel -mcmodel=kernel
-$(KOBJS): ASFLAGS+=-Ikernel
+$(KOBJS): CFLAGS+=-Ikernel -I. -mcmodel=kernel
+$(KOBJS): ASFLAGS+=-Ikernel -I.
 
 $K/kernel: $(KOBJS) $K/linker.ld
 	$(LD) $(LDFLAGS) -T $K/linker.ld -o $@ $(KOBJS) 
@@ -86,14 +86,14 @@ $U/usyscalls.S: $U/usyscalls.sh
 	$U/usyscalls.sh > $U/usyscalls.S
 # Define the userspace libraries
 ULIB = $U/ulib.o $U/usyscalls.o $U/printf.o 
-$(ULIB): CFLAGS+=-Iuser
-$(ULIB): ASFLAGS+=-Iuser
+$(ULIB): CFLAGS+=-Iuser -I.
+$(ULIB): ASFLAGS+=-Iuser -I.
 # User programs
 UPROGS=$U/_init \
 	$U/_echo
 
-_%: CFLAGS+=-Iuser
-_%: ASFLAGS+=-Iuser
+_%: CFLAGS+=-Iuser -I.
+_%: ASFLAGS+=-Iuser -I.
 # Compile the user programs and the libraries
 _%: %.o $(ULIB)
 	$(LD) $(LDFLAGS) -T $U/linker.ld -o $@ $^

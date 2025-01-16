@@ -3,11 +3,11 @@
 
 int main(int argc, char *argv[]) {
   for (int i = 1; i < argc; i++) {
-    write(serial_fd, argv[i], strlen(argv[i]));
+    write(stdout, argv[i], strlen(argv[i]));
     if (i + 1 < argc) {
-      write(serial_fd, " ", 1);
+      write(stdout, " ", 1);
     } else {
-      write(serial_fd, "\n", 1);
+      write(stdout, "\n", 1);
     }
   }
   exit(0);
