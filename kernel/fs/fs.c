@@ -98,10 +98,15 @@ struct fs_inode *fs_open(const char *path, uint32_t flags) {
   struct fs_inode *inode = NULL, *free_inode = NULL;
   spinlock_lock(&fs_inode_list.lock);
   for (int i = 0; i < MAX_INODES; i++) {
+    // Note: We have to lock here as well because of races that
+    // can happen if another core is trying to delete an inode and another
+    // is opening one.
+    spinlock_lock(&fs_inode_list.inodes[i].lock);
     if (fs_inode_list.inodes[i].type == INODE_EMPTY) {
       // We save a free inode in case that we end up not having this inode in
       // the list of open inodes
       free_inode = &fs_inode_list.inodes[i];
+      spinlock_unlock(&fs_inode_list.inodes[i].lock);
     } else if (fs_inode_list.inodes[i].dnode == dnode) {
       // We found the inode!
       inode = &fs_inode_list.inodes[i];
@@ -111,7 +116,8 @@ struct fs_inode *fs_open(const char *path, uint32_t flags) {
       // in regard of inode->parent_dnode. So I don't think we need
       // to set the inode->parent_dnode as parent.
       // Even setting it MIGHT cause some race issues.
-      inode->reference_count++;
+      __atomic_add_fetch(&inode->reference_count, 1, __ATOMIC_RELAXED);
+      spinlock_unlock(&fs_inode_list.inodes[i].lock);
       break;
     }
   }
@@ -144,36 +150,58 @@ struct fs_inode *fs_open(const char *path, uint32_t flags) {
 }
 
 /**
+ * Duplicates an inode. Basically, increases its reference counter
+ */
+void fs_dup(struct fs_inode *inode) {
+  // Note: No locks needed here
+  __atomic_add_fetch(&inode->reference_count, 1, __ATOMIC_RELAXED);
+}
+
+/**
  * Closes an inode. Decrements it's reference counter and
  * frees it if needed.
  */
 void fs_close(struct fs_inode *inode) {
-  spinlock_lock(&fs_inode_list.lock);
-  inode->reference_count--;
-  if (inode->reference_count == 0)
-    memset(inode, 0, sizeof(*inode));
-  spinlock_unlock(&fs_inode_list.lock);
+  spinlock_lock(&inode->lock);
+  if (__atomic_sub_fetch(&inode->reference_count, 1, __ATOMIC_ACQ_REL) == 0) {
+    inode->type = INODE_EMPTY;
+    inode->dnode = 0;
+    inode->parent_dnode = 0;
+    inode->size = 0;
+  }
+  spinlock_unlock(&inode->lock);
 }
 
 /**
  * Writes a chunk of data in the disk.
- * 
+ *
  * Returns the number of bytes written or -1 on error.
  */
-int fs_write(struct fs_inode *inode, const char *buffer, size_t len, size_t offset) {
-  int result = crowfs_write(&main_filesystem, inode->dnode, buffer, len, offset);
-  if (result != CROWFS_OK)
+int fs_write(struct fs_inode *inode, const char *buffer, size_t len,
+             size_t offset) {
+  spinlock_lock(&inode->lock);
+  int result =
+      crowfs_write(&main_filesystem, inode->dnode, buffer, len, offset);
+  if (result != CROWFS_OK) { // Error
+    spinlock_unlock(&inode->lock);
     return -1;
-  return (int) len;
+  }
+  // Increase the file size if needed
+  if (offset + len > inode->size)
+    inode->size = offset + len;
+  spinlock_unlock(&inode->lock);
+  return (int)len;
 }
 
 /**
  * Reads a chunk of data from the disk.
- * 
+ *
  * Returns the number of bytes written or -1 on error.
  */
 int fs_read(struct fs_inode *inode, char *buffer, size_t len, size_t offset) {
+  spinlock_lock(&inode->lock);
   int result = crowfs_read(&main_filesystem, inode->dnode, buffer, len, offset);
+  spinlock_unlock(&inode->lock);
   if (result < 0)
     return -1;
   return result;
