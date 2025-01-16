@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 // These values are just like Linux.
-// The definition and the 
+// The definition and the values
 #define O_RDONLY  00
 #define O_WRONLY  01
 #define O_RDWR    02
@@ -13,6 +13,10 @@
 #define O_TRUNC   01000
 #define O_APPEND  02000
 #define O_DEVICE  04000 // open a device file instead of a file
+
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
 
 // A file which is open a program
 struct process_file {
@@ -36,3 +40,4 @@ struct process_file {
 int file_open(const char *path, uint32_t flags);
 int file_write(int fd, const char *buffer, size_t len);
 int file_read(int fd, char *buffer, size_t len);
+int file_seek(int fd, int64_t offset, int whence);

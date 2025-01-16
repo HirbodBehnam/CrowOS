@@ -44,7 +44,7 @@ uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2,
   case SYSCALL_OPEN:
     return sys_open((const char *)a1, (uint32_t)a2);
   case SYSCALL_CLOSE:
-    break;
+    return sys_close((int)a1);
   case SYSCALL_BRK:
     break;
   case SYSCALL_EXEC:
@@ -52,6 +52,8 @@ uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2,
   case SYSCALL_EXIT:
     proc_exit((int)a1);
   case SYSCALL_WAIT:
+    break;
+  case SYSCALL_LSEEK:
     break;
 
   default:

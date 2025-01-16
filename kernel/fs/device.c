@@ -12,6 +12,7 @@ static struct device devices[] = {{
     .name = "serial",
     .read = serial_read,
     .write = serial_write,
+    .lseek = NULL, // no seek
 }};
 
 // Number of devices which we support

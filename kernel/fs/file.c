@@ -41,10 +41,10 @@ int file_open(const char *path, uint32_t flags) {
 int file_write(int fd, const char *buffer, size_t len) {
   struct process *p = my_process();
   if (p == NULL)
-    panic("file_open: no process");
+    panic("file_write: no process");
   if (fd < 0 || fd >= MAX_OPEN_FILES || !p->open_files[fd].writable ||
       p->open_files[fd].type != FD_INODE)
-    panic("fd_open: fd");
+    panic("file_write: fd");
   int result = fs_write(p->open_files[fd].structures.inode, buffer, len,
                         p->open_files[fd].offset);
   if (result < 0)
@@ -61,14 +61,45 @@ int file_write(int fd, const char *buffer, size_t len) {
 int file_read(int fd, char *buffer, size_t len) {
   struct process *p = my_process();
   if (p == NULL)
-    panic("file_open: no process");
+    panic("file_read: no process");
   if (fd < 0 || fd >= MAX_OPEN_FILES || !p->open_files[fd].readble ||
       p->open_files[fd].type != FD_INODE)
-    panic("fd_open: fd");
+    panic("file_read: fd");
   int result = fs_read(p->open_files[fd].structures.inode, buffer, len,
                        p->open_files[fd].offset);
   if (result < 0)
     return result;
   p->open_files[fd].offset += result;
   return result;
+}
+
+/**
+ * Seek to a specific part of file based on whence.
+ * This function is almost like the lseek syscall on Linux
+ */
+int file_seek(int fd, int64_t offset, int whence) {
+  struct process *p = my_process();
+  if (p == NULL)
+    panic("file_seek: no process");
+  if (fd < 0 || fd >= MAX_OPEN_FILES || p->open_files[fd].type != FD_INODE)
+    panic("file_seek: fd");
+  uint32_t file_size = p->open_files[fd].structures.inode->size;
+  switch (whence) {
+  case SEEK_SET:
+    p->open_files[fd].offset = (uint32_t)offset;
+    break;
+  case SEEK_CUR:
+    p->open_files[fd].offset =
+        (uint32_t)((int64_t)p->open_files[fd].offset + offset);
+    break;
+  case SEEK_END:
+    p->open_files[fd].offset = file_size - (uint32_t)offset;
+    break;
+  default:
+    return -1;
+  }
+  // At last, check if we are out of the bounds of the file
+  if (p->open_files[fd].offset > file_size)
+    p->open_files[fd].offset = file_size;
+  return p->open_files[fd].offset;
 }

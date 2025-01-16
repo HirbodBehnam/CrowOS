@@ -149,4 +149,4 @@ qemu-kvm-gdb: boot/disk.img
 
 .PHONY: clean
 clean:
-	rm -f $K/kernel $K/**/*.o $K/cpu/isr.S boot/disk.img $F/crowfs
+	rm -f $K/kernel $K/*.o $K/**/*.o $K/cpu/isr.S $F/crowfs $U/*.o $U/**/*.o $U/_* $U/usyscalls.S boot/disk.img

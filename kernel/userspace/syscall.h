@@ -6,6 +6,7 @@
 #define SYSCALL_EXEC  5
 #define SYSCALL_EXIT  6
 #define SYSCALL_WAIT  7
+#define SYSCALL_LSEEK 8
 
 #ifndef __ASSEMBLER__
 void syscall_init(void);

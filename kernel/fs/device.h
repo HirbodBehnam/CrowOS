@@ -1,5 +1,6 @@
 #pragma once
 #include <stddef.h>
+#include <stdint.h>
 
 /**
  * Defines a single device attached to system
@@ -11,6 +12,8 @@ struct device {
   int (*read)(char *, size_t);
   // What we should do on the write to this device
   int (*write)(const char *, size_t);
+  // Seek while reading or writing to this device
+  int (*lseek)(int64_t, int);
 };
 
 int device_open(const char *name);

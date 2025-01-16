@@ -2,7 +2,7 @@
 echo '#include "../kernel/userspace/syscall.h"'
 echo ".section .text"
 echo ".intel_syntax noprefix" # fuck AT&T
-for syscall in "read" "write" "open" "close" "brk" "exec" "exit" "wait"; do
+for syscall in "read" "write" "open" "close" "brk" "exec" "exit" "wait" "lseek"; do
 	echo ".globl $syscall"
 	echo ".type $syscall, @function"
 	echo "$syscall:"

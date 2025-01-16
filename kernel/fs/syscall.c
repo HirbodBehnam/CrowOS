@@ -63,3 +63,51 @@ int sys_write(int fd, const char *buffer, size_t len) {
     return -1;
   }
 }
+
+/**
+ * Closes a file descriptor. This is an no-op on devices.
+ */
+int sys_close(int fd) {
+  // Is this fd valid?
+  struct process *p = my_process();
+  if (fd < 0 || fd > MAX_OPEN_FILES || p->open_files[fd].type == FD_EMPTY)
+    return -1;
+  // Read from the file/device
+  switch (p->open_files[fd].type) {
+  case FD_INODE:
+    fs_close(p->open_files[fd].structures.inode);
+    p->open_files[fd].type = FD_EMPTY;
+    p->open_files[fd].readble = false;
+    p->open_files[fd].writable = false;
+    p->open_files[fd].structures.inode = NULL;
+    p->open_files[fd].offset = 0;
+    return 0;
+  case FD_DEVICE: // nothing to do
+    return 0;
+  default: // not implemented
+    return -1;
+  }
+}
+
+/**
+ * Changes the offset of a file descriptor. Returns the new offset of the file
+ * descriptor.
+ */
+int sys_lseek(int fd, int64_t offset, int whence) {
+  // Is this fd valid?
+  struct process *p = my_process();
+  if (fd < 0 || fd > MAX_OPEN_FILES || p->open_files[fd].type == FD_EMPTY)
+    return -1;
+  // Read from the file/device
+  switch (p->open_files[fd].type) {
+  case FD_INODE:
+    return file_seek(fd, offset, whence);
+  case FD_DEVICE:
+    struct device *dev = device_get(p->open_files[fd].structures.device);
+    if (dev == NULL || dev->lseek == NULL)
+      return -1;
+    return dev->lseek(offset, whence);
+  default: // not implemented
+    return -1;
+  }
+}
