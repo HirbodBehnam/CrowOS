@@ -1,3 +1,4 @@
+#include "printf.h"
 #include "ulib.h"
 #include "usyscalls.h"
 
@@ -9,7 +10,6 @@ int main() {
   char buffer[128];
   while (1) {
     gets(buffer, sizeof(buffer));
-    puts("Back from gets");
-    puts(buffer);
+    printf("%s", buffer);
   }
 }

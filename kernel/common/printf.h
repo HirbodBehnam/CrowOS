@@ -1,4 +1,3 @@
-#include <stdint.h>
 #include <stddef.h>
 
 int kprintf(const char *fmt, ...);

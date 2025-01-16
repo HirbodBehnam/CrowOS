@@ -121,6 +121,10 @@ char *gets(char *buf, int max) {
   return buf;
 }
 
+void putchar(char c) {
+  write(serial_fd, &c, 1);
+}
+
 int atoi(const char *s) {
   int n = 0;
   while ('0' <= *s && *s <= '9')

@@ -4,13 +4,9 @@
  */
 
 #include "printf.h"
-#include "cpu/asm.h"
-#include "device/serial_port.h"
-#include "spinlock.h"
+#include "ulib.h"
 #include <stdarg.h>
 #include <stdint.h>
-
-static struct spinlock print_lock;
 
 static const char *digits = "0123456789abcdef";
 
@@ -33,28 +29,26 @@ static void printint(long long xx, int base, int sign) {
     buf[i++] = '-';
 
   while (--i >= 0)
-    serial_putc(buf[i]);
+    putchar(buf[i]);
 }
 
 static void printptr(uint64_t x) {
-  serial_putc('0');
-  serial_putc('x');
+  putchar('0');
+  putchar('x');
   for (size_t i = 0; i < (sizeof(uint64_t) * 2); i++, x <<= 4)
-    serial_putc(digits[x >> (sizeof(uint64_t) * 8 - 4)]);
+    putchar(digits[x >> (sizeof(uint64_t) * 8 - 4)]);
 }
 
 // Print to the console.
-int kprintf(const char *fmt, ...) {
+int printf(const char *fmt, ...) {
   va_list ap;
   int i, cx, c0, c1, c2;
   char *s;
 
-  spinlock_lock(&print_lock);
-
   va_start(ap, fmt);
   for (i = 0; (cx = fmt[i] & 0xff) != 0; i++) {
     if (cx != '%') {
-      serial_putc(cx);
+      putchar(cx);
       continue;
     }
     i++;
@@ -94,35 +88,27 @@ int kprintf(const char *fmt, ...) {
       if ((s = va_arg(ap, char *)) == 0)
         s = "(null)";
       for (; *s; s++)
-        serial_putc(*s);
+        putchar(*s);
     } else if (c0 == '%') {
-      serial_putc('%');
+      putchar('%');
     } else if (c0 == 0) {
       break;
     } else {
       // Print unknown % sequence to draw attention.
-      serial_putc('%');
-      serial_putc(c0);
+      putchar('%');
+      putchar(c0);
     }
   }
   va_end(ap);
 
-  spinlock_unlock(&print_lock);
   return 0;
 }
 
-void khexdump(const char *buf, size_t size) {
+void hexdump(const char *buf, size_t size) {
   for (size_t i = 0; i < size; i++) {
     uint8_t data = buf[i];
-    serial_putc(digits[(data >> 4) & 0xF]);
-    serial_putc(digits[data & 0xF]);
+    putchar(digits[(data >> 4) & 0xF]);
+    putchar(digits[data & 0xF]);
   }
-  serial_putc('\n');
-}
-
-void panic(const char *s) {
-  cli();
-  kprintf("panic: %s\n", s);
-  for (;;)
-    ;
+  putchar('\n');
 }

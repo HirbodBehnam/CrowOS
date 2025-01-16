@@ -12,4 +12,5 @@ size_t strlen(const char *s);
 char *strchr(const char *s, char c);
 char *gets(char *buf, int max);
 void puts(const char *s);
+void putchar(char c);
 int atoi(const char *s);

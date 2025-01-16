@@ -49,8 +49,8 @@ interrupt_handler_asm:
 	pop rdx
 	pop rax
 	# The way we pushed them in stack in each IRQ
-	pop rsi
 	pop rdi
+	pop rsi
 	iretq
 
 # Syscall parameters in CrowOS are just like Linux

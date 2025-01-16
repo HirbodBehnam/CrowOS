@@ -85,7 +85,7 @@ $F/crowfs: $F/crowfs.c $F/main.c
 $U/usyscalls.S: $U/usyscalls.sh
 	$U/usyscalls.sh > $U/usyscalls.S
 # Define the userspace libraries
-ULIB = $U/ulib.o $U/usyscalls.o
+ULIB = $U/ulib.o $U/usyscalls.o $U/printf.o 
 $(ULIB): CFLAGS+=-Iuser
 $(ULIB): ASFLAGS+=-Iuser
 # User programs

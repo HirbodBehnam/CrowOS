@@ -98,6 +98,10 @@ char serial_getc(void) {
  */
 void serial_received_char(void) {
   char c = serial_getc();
+  // For some reason, the serial port sends \r for new lines
+  if (c == '\r')
+    c = '\n';
+  // Write to buffer
   condvar_lock(&serial_input_buffer_condvar);
   if ((serial_input_buffer_write_index + 1) % SERIAL_BUFFER_LENGTH !=
       serial_input_buffer_read_index) {
@@ -106,6 +110,10 @@ void serial_received_char(void) {
     serial_input_buffer_write_index =
         (serial_input_buffer_write_index + 1) % SERIAL_BUFFER_LENGTH;
     serial_putc(c);
+    // We shall use notify all. Because two programs might be
+    // waiting for input while the read buffer of the program
+    // is smaller than the bytes we just read.
+    condvar_notify_all(&serial_input_buffer_condvar);
   }
   condvar_unlock(&serial_input_buffer_condvar);
   lapic_send_eoi();
