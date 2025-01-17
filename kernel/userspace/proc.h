@@ -1,5 +1,5 @@
 #pragma once
-#include "common/spinlock.h"
+#include "common/condvar.h"
 #include "fs/file.h"
 #include "mem/vmm.h"
 #include <stddef.h>
@@ -43,11 +43,13 @@ struct process {
   pagetable_t pagetable;
   // Files open for this process. The index is the fd in the process.
   struct process_file open_files[MAX_OPEN_FILES];
-  // The spinlock which guards all variables below
-  struct spinlock lock;
-  // On what object are we waiting on?
+  // The condvar which guards all variables below.
+  // Programs might wait on this lock if they are using the wait
+  // system call.
+  struct condvar lock;
+  // On what object are we waiting on if sleeping?
   void *waiting_channel;
-  // The exit status of this application. Initial value is -1
+  // The exit status of this application
   int exit_status;
   // What is going on in this process?
   enum process_state state;
@@ -58,6 +60,7 @@ struct process *proc_allocate(void);
 void proc_wakeup(void *waiting_channel, bool everyone);
 int proc_allocate_fd(void);
 void proc_exit(int exit_code) __attribute__((noreturn));
+int proc_wait(uint64_t pid);
 void scheduler_init(void);
 void scheduler_switch_back(void);
 void scheduler(void);

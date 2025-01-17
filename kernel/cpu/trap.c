@@ -16,10 +16,10 @@ void handle_trap(uint64_t irq, uint64_t error_code) {
     break;
   case T_YEILD: {
     struct process *proc = my_process();
-    spinlock_lock(&proc->lock);
+    condvar_lock(&proc->lock);
     proc->state = RUNNABLE;
     scheduler_switch_back();
-    spinlock_unlock(&proc->lock);
+    condvar_unlock(&proc->lock);
   } break;
   default:
     kprintf("irq: %llu - error: %llx\n", irq, error_code);

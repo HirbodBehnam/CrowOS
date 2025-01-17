@@ -10,8 +10,8 @@ Writing an operating system for x86_64 for fun on top of [Limine](https://github
     - [x] Interrupt handler
     - [x] Cooperative scheduling
     - [x] Round robin scheduling
-    - [ ] Wait
-    - [ ] Shell
+    - [x] Wait
+    - [x] Shell
     - [ ] Preemptive scheduling
 - [ ] File System
     - [x] NVMe driver

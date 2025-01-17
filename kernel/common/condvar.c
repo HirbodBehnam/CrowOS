@@ -32,8 +32,8 @@ void condvar_wait(struct condvar *cond) {
    * Note: Keep the ordering this way. notify and notify_all at first lock the
    * process's lock.
    */
-  spinlock_lock(&proc->lock);
-  spinlock_unlock(&cond->lock);
+  condvar_lock(&proc->lock);
+  condvar_unlock(cond);
 
   // Setup the sleep parameters
   proc->state = SLEEPING;
@@ -43,8 +43,8 @@ void condvar_wait(struct condvar *cond) {
 
   // Done sleeping!
   // NOTE: I'm not sure about this ordering. xv6 does it this way
-  spinlock_unlock(&proc->lock);
-  spinlock_lock(&cond->lock);
+  condvar_unlock(&proc->lock);
+  condvar_lock(cond);
 }
 
 /**

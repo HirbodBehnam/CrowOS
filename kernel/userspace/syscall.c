@@ -2,6 +2,7 @@
 #include "cpu/asm.h"
 #include "cpu/gdt.h"
 #include "fs/syscall.h"
+#include "include/syscall.h"
 #include "userspace/exec.h"
 #include "userspace/proc.h"
 
@@ -52,9 +53,9 @@ uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2,
   case SYSCALL_EXIT:
     proc_exit((int)a1);
   case SYSCALL_WAIT:
-    break;
+    return proc_wait(a1);
   case SYSCALL_LSEEK:
-    break;
+    return sys_lseek((int)a1, (int64_t)a2, (int)a3);
 
   default:
     return -1;

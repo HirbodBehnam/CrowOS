@@ -9,7 +9,7 @@ int close(int);
 char *brk(int);
 int exec(const char *, char **);
 int exit(int) __attribute__((noreturn));
-int wait(int *);
+int wait(uint64_t);
 int lseek(int, int64_t, int);
 
 // Yield the program and give the time slice to another program

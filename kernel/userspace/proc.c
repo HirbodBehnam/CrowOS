@@ -50,7 +50,7 @@ struct process *my_process(void) { return running_process[get_processor_id()]; }
  * Unlocks the current running process's lock. This function
  * is intended to be called from assembly function "jump_to_ring3".
  */
-void my_process_unlock(void) { spinlock_unlock(&my_process()->lock); };
+void my_process_unlock(void) { condvar_unlock(&my_process()->lock); };
 
 /**
  * Allocate a new process. Will return NULL on error.
@@ -59,25 +59,26 @@ struct process *proc_allocate(void) {
   // Find a free process slot
   struct process *p = NULL;
   for (size_t i = 0; i < MAX_PROCESSES; i++) {
-    spinlock_lock(&processes[i].lock);
+    condvar_lock(&processes[i].lock);
     if (processes[i].state == UNUSED) {
       p = &processes[i];
       break;
     }
-    spinlock_unlock(&processes[i].lock);
+    condvar_unlock(&processes[i].lock);
   }
   if (p == NULL) // no free slot
     return NULL;
   // Make it usable
   p->state = USED;
-  spinlock_unlock(&p->lock); // we can do an early unlock here probably
+  p->pid = get_next_pid();
+  p->exit_status = -1;
+  condvar_unlock(&p->lock); // we can do an early unlock here probably
   p->pagetable = vmm_user_pagetable_new();
   if (p->pagetable == NULL) { // well shit
     p->state = UNUSED;
+    p->pid = 0;
     return NULL;
   }
-  p->pid = get_next_pid();
-  p->exit_status = -1;
   return p;
 }
 
@@ -85,16 +86,19 @@ struct process *proc_allocate(void) {
  * Wakes up one or all processes which are waiting on a waiting channel
  */
 void proc_wakeup(void *waiting_channel, bool everyone) {
+  struct process *p = my_process();
   bool done = false;
   for (size_t i = 0; i < MAX_PROCESSES; i++) {
-    spinlock_lock(&processes[i].lock);
+    if (p == &processes[i]) // avoid deadlock
+      continue;
+    condvar_lock(&processes[i].lock);
     if (processes[i].state == SLEEPING &&
         processes[i].waiting_channel == waiting_channel) {
       processes[i].state = RUNNABLE;
       // If we should wake up one thread only, then we are done
       done = !everyone;
     }
-    spinlock_unlock(&processes[i].lock);
+    condvar_unlock(&processes[i].lock);
     if (done)
       break;
   }
@@ -139,16 +143,54 @@ void proc_exit(int exit_code) {
   }
 
   // Lock the process to avoid race
-  spinlock_lock(&proc->lock);
+  condvar_lock(&proc->lock);
 
   // Set the exit status
   proc->exit_status = exit_code;
-  // TODO: wake up the waiters
+  condvar_notify_all(&proc->lock);
 
   // Set the status to the exited and return back
   proc->state = EXITED;
   scheduler_switch_back();
   panic("proc_exit: scheduler returned");
+}
+
+/**
+ * Waits until a process is finished and returns its exit value.
+ * Will return -1 if the pid does not exist.
+ *
+ * Note: Because we use locks in scheduler there is no way we can
+ * face a race here. However, the is the possibility that the exit
+ * code gets lost. On the other hand, we give this process one round
+ * in the round robin process in order for another process to wait
+ * for it; If no process has waited on this process, the result will
+ * be lost.
+ */
+int proc_wait(uint64_t target_pid) {
+  struct process *target_process = NULL;
+
+  // Look for the process with the given pid
+  for (size_t i = 0; i < MAX_PROCESSES; i++) {
+    condvar_lock(&processes[i].lock);
+    if (processes[i].pid == target_pid) {
+      target_process = &processes[i];
+      break;
+    }
+    condvar_unlock(&processes[i].lock);
+  }
+
+  // Did we find the given process?
+  if (target_process == NULL)
+    return -1;
+
+  // Wait until the status is exited
+  while (target_process->state != EXITED)
+    condvar_wait(&target_process->lock);
+
+  // Copy the value to a register to prevent races
+  int exit_status = target_process->exit_status;
+  condvar_unlock(&target_process->lock);
+  return exit_status;
 }
 
 /**
@@ -170,7 +212,7 @@ void scheduler_init(void) {
  */
 void scheduler_switch_back(void) {
   struct process *proc = my_process();
-  if (!spinlock_locked(&proc->lock))
+  if (!spinlock_locked(&proc->lock.lock))
     panic("scheduler_switch_back: not locked");
   context_switch(kernel_stackpointer, &proc->resume_stack_pointer);
 }
@@ -185,7 +227,7 @@ void scheduler(void) {
     // processes are waiting.
     sti();
     for (size_t i = 0; i < MAX_PROCESSES; i++) { // look for processes...
-      spinlock_lock(&processes[i].lock);         // lock them to inspect them...
+      condvar_lock(&processes[i].lock);          // lock them to inspect them...
       switch (processes[i].state) {
       case RUNNABLE:
         processes[i].state = RUNNING; // which are runnable...
@@ -205,11 +247,14 @@ void scheduler(void) {
         // Free the memory of the process
         vmm_user_pagetable_free(processes[i].pagetable);
         processes[i].state = UNUSED;
+        processes[i].pid = 0; // do not give false positive in wait
+        processes[i].resume_stack_pointer = 0;
+        processes[i].pagetable = NULL;
         break;
       default:
         break;
       }
-      spinlock_unlock(&processes[i].lock);
+      condvar_unlock(&processes[i].lock);
     }
   }
 }

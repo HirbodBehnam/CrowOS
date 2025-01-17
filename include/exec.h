@@ -1,0 +1,1 @@
+#define MAX_ARGV 32 // Maximum arguments of a program

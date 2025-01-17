@@ -4,12 +4,12 @@
 #include "device/serial_port.h"
 #include "fs/device.h"
 #include "fs/fs.h"
+#include "include/exec.h"
 #include "include/file.h"
 #include "mem/mem.h"
 #include "mem/vmm.h"
 #include "userspace/proc.h"
 
-#define MAX_ARGV 64           // Maximum arguments of a program
 #define ELF_MAGIC 0x464C457FU // "\x7FELF" in little endian
 
 // File header
@@ -208,6 +208,7 @@ bad:
   if (proc != NULL) {
     vmm_user_pagetable_free(proc->pagetable);
     proc->state = UNUSED;
+    proc->pid = 0;
   }
   return -1;
 }

@@ -92,8 +92,8 @@ $(ULIB): ASFLAGS+=-Iuser -I.
 UPROGS=$U/_init \
 	$U/_echo
 
-_%: CFLAGS+=-Iuser -I.
-_%: ASFLAGS+=-Iuser -I.
+%.o: CFLAGS+=-Iuser -I.
+%.o: ASFLAGS+=-Iuser -I.
 # Compile the user programs and the libraries
 _%: %.o $(ULIB)
 	$(LD) $(LDFLAGS) -T $U/linker.ld -o $@ $^
