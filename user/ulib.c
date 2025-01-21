@@ -98,13 +98,24 @@ void puts(const char *s) {
 }
 
 char *gets(char *buf, int max) {
-  int i, cc;
   char c;
+  int i;
 
   for (i = 0; i + 1 < max;) {
-    cc = read(stdin, &c, 1);
-    if (cc < 1)
+    int cc = read(stdin, &c, 1);
+    if (cc < 1) // end of stream
       break;
+    // Check for backspace
+    if (c == 127) { // DEL ASCII
+      if (i == 0)   // Do not allow backspace at the first of buffer
+        continue;
+      // Remove from buffer
+      i--;
+      // Remove from console
+      write(stdout, "\b \b", 3);
+      continue;
+    }
+    // Write to buffer
     buf[i++] = c;
     if (c == '\n' || c == '\r')
       break;
