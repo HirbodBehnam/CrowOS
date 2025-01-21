@@ -29,7 +29,7 @@ int file_open(const char *path, uint32_t flags) {
   p->open_files[fd].type = FD_INODE;
   p->open_files[fd].structures.inode = inode;
   p->open_files[fd].offset = 0;
-  p->open_files[fd].readble = (flags & O_WRONLY) != 0;
+  p->open_files[fd].readble = (flags & O_WRONLY) == 0;
   p->open_files[fd].writable = (flags & O_WRONLY) || (flags & O_RDWR);
   return fd;
 }

@@ -198,9 +198,11 @@ int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
  * Allocates pages in a page table. va must be page aligned and the size
  * must be devisable by page size. Returns 0 on success, -1 if walk() couldn't
  * allocate a needed pagetable page.
+ *
+ * If clear is set, the allocated page will be filled with zero, otherwise 2.
  */
 int vmm_allocate(pagetable_t pagetable, uint64_t va, uint64_t size,
-                 pte_permissions permissions) {
+                 pte_permissions permissions, bool clear) {
   // Sanity checks
   if (va % PAGE_SIZE != 0)
     panic("vmm_allocate: va not aligned");
@@ -212,7 +214,11 @@ int vmm_allocate(pagetable_t pagetable, uint64_t va, uint64_t size,
   const uint64_t pages_to_alloc = size / PAGE_SIZE;
   for (uint64_t i = 0; i < pages_to_alloc; i++) {
     const uint64_t current_va = va + i * PAGE_SIZE;
-    void *frame = kalloc();
+    void *frame;
+    if (clear)
+      frame = kcalloc();
+    else
+      frame = kalloc();
     if (frame == NULL)
       return -1;
     struct pte_t *pte = walk(pagetable, current_va, true, false);
@@ -385,6 +391,51 @@ void vmm_user_pagetable_free(pagetable_t pagetable) {
   kfree((void *)P2V(stack));
   // Now we have to recursively look at any page between VA_MAX and VA_MIN
   vmm_user_pagetable_free_recursive(pagetable, 0, 3);
+}
+
+/**
+ * For an sbrk with positive delta it will allocate the new pages (if needed)
+ * and return the new sbrk value to set in the PCB.
+ */
+uint64_t vmm_user_sbrk_allocate(pagetable_t pagetable, uint64_t old_sbrk,
+                                uint64_t delta) {
+  uint64_t new_sbrk = old_sbrk + delta;
+  old_sbrk = PAGE_ROUND_UP(old_sbrk);
+  for (uint64_t currently_allocating = old_sbrk;
+       currently_allocating < new_sbrk; currently_allocating += PAGE_SIZE) {
+    if (vmm_allocate(
+            pagetable, currently_allocating, PAGE_SIZE,
+            (pte_permissions){.writable = 1, .executable = 0, .userspace = 1},
+            true) < 0) {
+      // TODO: handle OOM
+      break;
+    }
+  }
+  return new_sbrk;
+}
+
+/**
+ * Deallocated memory in a range of [old_sbrk, old_sbrk - delta].
+ * Will not partially remove allocated pages.
+ * Will return the new sbrk value set to old_sbrk - delta. This function
+ * will not fail unless the page table contains unallocated pages.
+ */
+uint64_t vmm_user_sbrk_deallocate(pagetable_t pagetable, uint64_t old_sbrk,
+                                  uint64_t delta) {
+  uint64_t new_sbrk = old_sbrk - delta;
+  old_sbrk = PAGE_ROUND_DOWN(old_sbrk);
+  for (uint64_t currently_deallocating = old_sbrk;
+       currently_deallocating > new_sbrk; currently_deallocating -= PAGE_SIZE) {
+    // Find the frame allocated
+    struct pte_t *pte = walk(pagetable, currently_deallocating, false, false);
+    if (pte == NULL)
+      panic("vmm_user_sbrk_deallocate: non-existant page");
+    // Mark it invalid in the page table
+    pte->present = 0;
+    // Delete the frame
+    kfree((void *)P2V(pte_follow(*pte)));
+  }
+  return new_sbrk;
 }
 
 /**

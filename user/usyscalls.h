@@ -6,7 +6,7 @@ int read(int, void *, size_t);
 int write(int, const void *, size_t);
 int open(const char *, int);
 int close(int);
-char *brk(int);
+void *sbrk(int64_t);
 int exec(const char *, char **);
 int exit(int) __attribute__((noreturn));
 int wait(uint64_t);

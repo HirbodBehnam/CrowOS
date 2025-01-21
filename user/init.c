@@ -24,14 +24,19 @@ int main() {
     printf("$ ");
     gets(input_buffer, sizeof(input_buffer));
     trim_string(input_buffer);
-    args[0] = input_buffer;
+    if (strlen(input_buffer) == 0) // empty buffer
+      continue;
+    // Parse the arguments
+    char *breaking_point = input_buffer;
+    args[0] = breaking_point;
     for (i = 1; i < MAX_ARGV - 1; i++) {
-      char *breaking_point = strchr(input_buffer, ' ');
+      breaking_point = strchr(breaking_point, ' ');
       if (breaking_point == NULL) // reached end of string
         break;
       // Put a null terminator to terminate argument before
       *breaking_point = '\0';
-      args[i] = breaking_point + 1; // Next argument starts from char after
+      breaking_point++; // skip the null terminator
+      args[i] = breaking_point;
     }
     args[i] = NULL; // terminate the arguments
     int pid = exec(args[0], args);

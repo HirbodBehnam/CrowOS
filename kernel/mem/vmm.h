@@ -117,10 +117,14 @@ uint64_t vmm_walkaddr(pagetable_t pagetable, uint64_t va, bool user);
 int vmm_map_pages(pagetable_t pagetable, uint64_t va, uint64_t size,
                   uint64_t pa, pte_permissions permissions);
 int vmm_allocate(pagetable_t pagetable, uint64_t va, uint64_t size,
-                 pte_permissions permissions);
+                 pte_permissions permissions, bool clear);
 void *vmm_io_memmap(uint64_t pa, uint64_t size);
 pagetable_t vmm_user_pagetable_new();
 void vmm_user_pagetable_free(pagetable_t pagetable);
+uint64_t vmm_user_sbrk_allocate(pagetable_t pagetable, uint64_t old_sbrk,
+                                uint64_t delta);
+uint64_t vmm_user_sbrk_deallocate(pagetable_t pagetable, uint64_t old_sbrk,
+                                  uint64_t delta);
 int vmm_memcpy(pagetable_t pagetable, uint64_t destination_virtual_address,
                const void *source, size_t len, bool userspace);
 #endif

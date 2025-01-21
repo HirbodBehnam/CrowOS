@@ -131,12 +131,12 @@ uint64_t proc_exec(const char *path, const char *args[]) {
       goto bad;
     // Load the segments in the memory
     if (vmm_allocate(proc->pagetable, ph.vaddr, PAGE_ROUND_UP(ph.memsz),
-                     flags2perm(ph.flags)) == -1)
+                     flags2perm(ph.flags), false) == -1)
       goto bad;
-    // Probably no need to flush the TLB
     if (load_segment(proc->pagetable, proc_inode, ph.vaddr, ph.off, ph.filesz) <
         0)
       goto bad;
+    proc->initial_data_segment = MAX_SAFE(proc->initial_data_segment, ph.vaddr + PAGE_ROUND_UP(ph.memsz));
   }
   // Write the arguments to the user stack
   uint64_t rsp = USER_STACK_TOP;
@@ -197,6 +197,10 @@ uint64_t proc_exec(const char *path, const char *args[]) {
   proc->open_files[DEFAULT_STDERR].offset = 0;
   proc->open_files[DEFAULT_STDERR].readble = false;
   proc->open_files[DEFAULT_STDERR].writable = true;
+
+  // Setup the values for the sbrk syscall
+  proc->initial_data_segment = PAGE_ROUND_UP(proc->initial_data_segment);
+  proc->current_sbrk = proc->initial_data_segment;
 
   // We are fucking done!
   fs_close(proc_inode);

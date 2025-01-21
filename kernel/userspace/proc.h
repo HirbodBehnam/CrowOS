@@ -43,6 +43,10 @@ struct process {
   pagetable_t pagetable;
   // Files open for this process. The index is the fd in the process.
   struct process_file open_files[MAX_OPEN_FILES];
+  // Top of the initial data segment.
+  uint64_t initial_data_segment;
+  // The value returned by sbrk(0)
+  uint64_t current_sbrk;
   // The condvar which guards all variables below.
   // Programs might wait on this lock if they are using the wait
   // system call.
@@ -61,6 +65,7 @@ void proc_wakeup(void *waiting_channel, bool everyone);
 int proc_allocate_fd(void);
 void proc_exit(int exit_code) __attribute__((noreturn));
 int proc_wait(uint64_t pid);
+void *proc_sbrk(int64_t how_much);
 void scheduler_init(void);
 void scheduler_switch_back(void);
 void scheduler(void);

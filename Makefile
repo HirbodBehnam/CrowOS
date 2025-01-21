@@ -90,7 +90,8 @@ $(ULIB): CFLAGS+=-Iuser -I.
 $(ULIB): ASFLAGS+=-Iuser -I.
 # User programs
 UPROGS=$U/_init \
-	$U/_echo
+	$U/_echo \
+	$U/_cat \
 
 %.o: CFLAGS+=-Iuser -I.
 %.o: ASFLAGS+=-Iuser -I.

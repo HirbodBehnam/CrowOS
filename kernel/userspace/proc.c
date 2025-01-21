@@ -79,6 +79,8 @@ struct process *proc_allocate(void) {
     p->pid = 0;
     return NULL;
   }
+  p->current_sbrk = 0;
+  p->initial_data_segment = 0;
   return p;
 }
 
@@ -194,10 +196,32 @@ int proc_wait(uint64_t target_pid) {
 }
 
 /**
+ * Allocates are deallocates memory by increasing or decreasing the top of the
+ * data segment.
+ */
+void *proc_sbrk(int64_t how_much) {
+  struct process *p = my_process();
+  void *before = (void *)p->current_sbrk;
+
+  if (how_much > 0) { // allocating memory
+    p->current_sbrk =
+        vmm_user_sbrk_allocate(p->pagetable, p->current_sbrk, how_much);
+  } else if (how_much < 0) { // deallocating memory
+    if (p->initial_data_segment <= p->current_sbrk + how_much) {
+      // Do not deallocate memory which is not allocated with sbrk
+      how_much = p->initial_data_segment - p->current_sbrk;
+    }
+    p->current_sbrk =
+        vmm_user_sbrk_deallocate(p->pagetable, p->current_sbrk, -how_much);
+  }
+  return before;
+}
+
+/**
  * Setup the scheduler by creating a process which runs as the very program
  */
 void scheduler_init(void) {
-  const char *args[] = {"/init", "hello", "userspace!", NULL};
+  const char *args[] = {"/init", NULL};
   if (proc_exec("/init", args) == (uint64_t)-1)
     panic("cannot create /init process");
   kprintf("Initialized first userprog\n");
@@ -249,6 +273,8 @@ void scheduler(void) {
         processes[i].state = UNUSED;
         processes[i].pid = 0; // do not give false positive in wait
         processes[i].resume_stack_pointer = 0;
+        processes[i].current_sbrk = 0;
+        processes[i].initial_data_segment = 0;
         processes[i].pagetable = NULL;
         break;
       default:

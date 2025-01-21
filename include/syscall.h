@@ -2,7 +2,7 @@
 #define SYSCALL_WRITE 1
 #define SYSCALL_OPEN  2
 #define SYSCALL_CLOSE 3
-#define SYSCALL_BRK   4
+#define SYSCALL_SBRK  4
 #define SYSCALL_EXEC  5
 #define SYSCALL_EXIT  6
 #define SYSCALL_WAIT  7
