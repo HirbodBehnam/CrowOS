@@ -1,6 +1,7 @@
 #include "syscall.h"
 #include "cpu/asm.h"
 #include "cpu/gdt.h"
+#include "device/rtc.h"
 #include "fs/syscall.h"
 #include "include/syscall.h"
 #include "userspace/exec.h"
@@ -56,6 +57,8 @@ uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2,
     return proc_wait(a1);
   case SYSCALL_LSEEK:
     return sys_lseek((int)a1, (int64_t)a2, (int)a3);
+  case SYSCALL_TIME:
+    return rtc_get_epoch();
 
   default:
     return -1;

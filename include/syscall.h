@@ -7,3 +7,4 @@
 #define SYSCALL_EXIT  6
 #define SYSCALL_WAIT  7
 #define SYSCALL_LSEEK 8
+#define SYSCALL_TIME  9

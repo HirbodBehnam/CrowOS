@@ -47,6 +47,7 @@ KOBJS=$K/init.o \
 	$K/device/nvme.o \
 	$K/device/pcie.o \
 	$K/device/pic.o \
+	$K/device/rtc.o \
 	$K/device/serial_port.o \
 	$K/fs/device.o \
 	$K/fs/file.o \
@@ -92,6 +93,7 @@ $(ULIB): ASFLAGS+=-Iuser -I.
 UPROGS=$U/_init \
 	$U/_echo \
 	$U/_cat \
+	$U/_date \
 
 %.o: CFLAGS+=-Iuser -I.
 %.o: ASFLAGS+=-Iuser -I.

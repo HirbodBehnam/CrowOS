@@ -7,6 +7,7 @@
 #include "device/nvme.h"
 #include "device/pcie.h"
 #include "device/pic.h"
+#include "device/rtc.h"
 #include "device/serial_port.h"
 #include "fs/fs.h"
 #include "limine.h"
@@ -112,6 +113,8 @@ void kmain(void) {
 
   // Initialize syscall on each core
   syscall_init();
+
+  rtc_init();
 
   // Run the scheduler to schedule processes
   kprintf("Master Core Initiated\n");

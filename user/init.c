@@ -15,12 +15,13 @@ static void trim_string(char *string) {
   }
 }
 
+// Defines these in global scope to avoid stack overflow
+static char *args[MAX_ARGV];
+static char input_buffer[512];
+
 int main() {
-  char *args[MAX_ARGV];
-  char input_buffer[512];
   puts("Welcome to CrowOS!");
   while (1) {
-    int i;
     printf("$ ");
     gets(input_buffer, sizeof(input_buffer));
     trim_string(input_buffer);
@@ -29,6 +30,7 @@ int main() {
     // Parse the arguments
     char *breaking_point = input_buffer;
     args[0] = breaking_point;
+    int i;
     for (i = 1; i < MAX_ARGV - 1; i++) {
       breaking_point = strchr(breaking_point, ' ');
       if (breaking_point == NULL) // reached end of string
