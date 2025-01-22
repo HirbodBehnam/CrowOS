@@ -9,11 +9,17 @@
  * List of all devices which user can use
  */
 static struct device devices[] = {{
-    .name = SERIAL_DEVICE_NAME,
-    .read = serial_read,
-    .write = serial_write,
-    .lseek = NULL, // no seek
-}};
+                                      .name = SERIAL_DEVICE_NAME,
+                                      .read = serial_read,
+                                      .write = serial_write,
+                                      .lseek = NULL, // no seek
+                                  },
+                                  {
+                                      .name = SERIAL_ASYNC_DEVICE_NAME,
+                                      .read = serial_read_async,
+                                      .write = serial_write,
+                                      .lseek = NULL, // no seek
+                                  }};
 
 // Number of devices which we support
 #define DEVICES_SIZE (sizeof(devices) / sizeof(devices[0]))

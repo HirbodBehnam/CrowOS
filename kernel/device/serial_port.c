@@ -129,17 +129,28 @@ int serial_write(const char *buffer, size_t len) {
 }
 
 /**
- * Blocks and waits until some bytes can be read from the serial port
- * and returns the result.
+ * Fills a buffer from the serial port's input. If the async is set to be
+ * true, there is a possibility that this function returns with the number
+ * of bytes read set to zero. (If the buffer is empty)
+ * Otherwise if async is false, this function sleeps until there is at least
+ * on character that can be read from the input and then returns with a result
+ * greater than zero.
  */
-int serial_read(char *buffer, size_t len) {
+static int internal_serial_read(char *buffer, size_t len, bool async) {
   // But why would anyone do this?
   if (len == 0)
     return 0;
   // Lock the input buffer
   condvar_lock(&serial_input_buffer_condvar);
-  while (serial_input_buffer_read_index == serial_input_buffer_write_index)
-    condvar_wait(&serial_input_buffer_condvar); // empty buffer so wait
+  while (serial_input_buffer_read_index == serial_input_buffer_write_index) {
+    // Empty buffer...
+    if (async) { // Nothing to read. Just bail
+      condvar_unlock(&serial_input_buffer_condvar);
+      return 0;
+    } else { // wait until buffer is full
+      condvar_wait(&serial_input_buffer_condvar);
+    }
+  }
   size_t available_bytes;
   if (serial_input_buffer_write_index <
       serial_input_buffer_read_index) { // ring overflow
@@ -159,4 +170,21 @@ int serial_read(char *buffer, size_t len) {
   // We are done!
   condvar_unlock(&serial_input_buffer_condvar);
   return to_read_bytes;
+}
+
+/**
+ * Blocks and waits until some bytes can be read from the serial port
+ * and fills the given buffer. The result of this function is the number
+ * of bytes read.
+ */
+int serial_read(char *buffer, size_t len) {
+  return internal_serial_read(buffer, len, false);
+}
+
+/**
+ * Fills the buffer if there is at least one byte that could be read. Otherwise,
+ * returns zero and does not touch the buffer.
+ */
+int serial_read_async(char *buffer, size_t len) {
+  return internal_serial_read(buffer, len, true);
 }
