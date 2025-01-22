@@ -58,7 +58,10 @@ uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2,
   case SYSCALL_LSEEK:
     return sys_lseek((int)a1, (int64_t)a2, (int)a3);
   case SYSCALL_TIME:
-    return rtc_get_epoch();
+    return rtc_now();
+  case SYSCALL_SLEEP:
+    sys_sleep(a1);
+    return 0;
 
   default:
     return -1;

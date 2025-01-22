@@ -289,6 +289,6 @@ void rtc_init(void) {
 /**
  * Gets the RTC time in unix epoch, with millisecond precision.
  */
-uint64_t rtc_get_epoch(void) {
+uint64_t rtc_now(void) {
   return initial_rtc + (get_tsc() - initial_tsc) / tsc_frequency;
 }

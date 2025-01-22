@@ -64,8 +64,8 @@ KOBJS=$K/init.o \
 
 LDFLAGS = -m elf_x86_64 \
 	-nostdlib \
-	-static \
-	-z max-page-size=0x1000
+	-z max-page-size=0x1000 \
+
 # Target specific variables https://stackoverflow.com/a/1305879/4213397
 $(KOBJS): CFLAGS+=-Ikernel -I. -mcmodel=kernel
 $(KOBJS): ASFLAGS+=-Ikernel -I.

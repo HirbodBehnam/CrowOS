@@ -8,3 +8,4 @@
 #define SYSCALL_WAIT  7
 #define SYSCALL_LSEEK 8
 #define SYSCALL_TIME  9
+#define SYSCALL_SLEEP 10

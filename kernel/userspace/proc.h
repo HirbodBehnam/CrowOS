@@ -66,6 +66,7 @@ int proc_allocate_fd(void);
 void proc_exit(int exit_code) __attribute__((noreturn));
 int proc_wait(uint64_t pid);
 void *proc_sbrk(int64_t how_much);
+void sys_sleep(uint64_t msec);
 void scheduler_init(void);
 void scheduler_switch_back(void);
 void scheduler(void);

@@ -408,6 +408,7 @@ uint64_t vmm_user_sbrk_allocate(pagetable_t pagetable, uint64_t old_sbrk,
             (pte_permissions){.writable = 1, .executable = 0, .userspace = 1},
             true) < 0) {
       // TODO: handle OOM
+      panic("sbrk: OOM");
       break;
     }
   }

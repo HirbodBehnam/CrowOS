@@ -2,6 +2,7 @@
 #include "common/printf.h"
 #include "cpu/asm.h"
 #include "cpu/smp.h"
+#include "device/rtc.h"
 #include "fs/fs.h"
 #include "userspace/exec.h"
 
@@ -218,6 +219,27 @@ void *proc_sbrk(int64_t how_much) {
 }
 
 /**
+ * Sleep the current process for at least the number of milliseconds given as
+ * the argument.
+ */
+void sys_sleep(uint64_t msec) {
+  struct process *proc = my_process();
+  const uint64_t target_epoch_wakeup = rtc_now() + msec;
+  /**
+   * For now, we simply use busy waiting. Just wait until we have
+   * reached the desired sleep duration. In each step, we switch back
+   * to the scheduler to allow other processes to run.
+   */
+ 
+  condvar_lock(&my_process()->lock); // lock before switch back
+  while (target_epoch_wakeup > rtc_now()) {
+    proc->state = RUNNABLE; // we can run this again
+    scheduler_switch_back(); // switch back to allow other processes to run
+  }
+  condvar_unlock(&my_process()->lock);
+}
+
+/**
  * Setup the scheduler by creating a process which runs as the very program
  */
 void scheduler_init(void) {
@@ -238,6 +260,8 @@ void scheduler_switch_back(void) {
   struct process *proc = my_process();
   if (!spinlock_locked(&proc->lock.lock))
     panic("scheduler_switch_back: not locked");
+  if (proc->state == RUNNING)
+    panic("scheduler_switch_back: RUNNING");
   context_switch(kernel_stackpointer, &proc->resume_stack_pointer);
 }
 
