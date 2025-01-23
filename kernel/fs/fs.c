@@ -208,6 +208,42 @@ int fs_read(struct fs_inode *inode, char *buffer, size_t len, size_t offset) {
 }
 
 /**
+ * Renames a file or directory and updates all effected inodes.
+ */
+int fs_rename(const char *old_path, const char *new_path) {
+  (void) new_path;
+  (void) old_path;
+  panic("NOT IMPLEMENTED");
+}
+
+/**
+ * Deletes a file or empty directory. Will fail if the file/directory is open
+ * in a program.
+ */
+int fs_delete(const char *path) {
+  uint32_t dnode, parent_dnode;
+  int result = crowfs_open(&main_filesystem, path, &dnode, &parent_dnode, 0);
+  if (result != CROWFS_OK)
+    return -1; // does not exist
+  result = crowfs_delete(&main_filesystem, dnode, parent_dnode);
+  if (result != CROWFS_OK)
+    return -1;
+  return 0;
+}
+
+/**
+ * Creates an empty directory.
+ */
+int fs_mkdir(const char *directory) {
+  uint32_t dnode, parent_dnode;
+  int result = crowfs_open(&main_filesystem, directory, &dnode, &parent_dnode,
+                           CROWFS_O_CREATE | CROWFS_O_DIR);
+  if (result != CROWFS_OK)
+    return -1;
+  return 0;
+}
+
+/**
  * Initialize the filesystem. Check if the file system existsing is valid
  * and load metadata of it in the memory.
  */

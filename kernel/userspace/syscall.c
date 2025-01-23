@@ -64,6 +64,12 @@ uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2,
     return 0;
   case SYSCALL_IOCTL:
     return sys_ioctl((int)a1, (int)a2, (void *)a3);
+  case SYSCALL_RENAME:
+    return sys_rename((const char *) a1, (const char *) a2);
+  case SYSCALL_UNLINK:
+    return sys_unlink((const char *) a1);
+  case SYSCALL_MKDIR:
+    return sys_mkdir((const char *) a1);
 
   default:
     return -1;

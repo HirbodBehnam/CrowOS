@@ -14,6 +14,9 @@ int lseek(int, int64_t, int);
 uint64_t time(void);
 void sleep(uint64_t);
 int ioctl(int, int, void *);
+int rename(const char *, const char *);
+int unlink(const char *);
+int mkdir(const char *);
 
 // Yield the program and give the time slice to another program
 static inline void yield(void) { __asm__ volatile("int 0x80"); }

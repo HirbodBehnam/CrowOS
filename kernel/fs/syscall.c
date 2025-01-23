@@ -135,3 +135,29 @@ int sys_ioctl(int fd, int command, void *data) {
     return -1;
   }
 }
+
+/**
+ * Renames a file or a folder. Renaming can be the same as moving the
+ * file/folder.
+ *
+ * On success, zero is returned.  On error, -1 is returned.
+ */
+int sys_rename(const char *old_path, const char *new_path) {
+  return fs_rename(old_path, new_path);
+}
+
+/**
+ * Remove a file or *empty* directory.
+ * In case that you want to delete a non empty directory, you have to
+ * recursively delete all files in it.
+ *
+ * On success, zero is returned.  On error, -1 is returned.
+ */
+int sys_unlink(const char *path) { return fs_delete(path); }
+
+/**
+ * Creates an empty directory with the given path.
+ *
+ * On success, zero is returned.  On error, -1 is returned.
+ */
+int sys_mkdir(const char *directory) { return fs_mkdir(directory); }

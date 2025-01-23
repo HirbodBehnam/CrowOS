@@ -27,4 +27,7 @@ void fs_close(struct fs_inode *inode);
 void fs_dup(struct fs_inode *inode);
 int fs_write(struct fs_inode *inode, const char *buffer, size_t len, size_t offset);
 int fs_read(struct fs_inode *inode, char *buffer, size_t len, size_t offset);
+int fs_rename(const char *old_path, const char *new_path);
+int fs_delete(const char *path);
+int fs_mkdir(const char *directory);
 void fs_init(void);
