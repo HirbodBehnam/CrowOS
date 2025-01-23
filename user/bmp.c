@@ -1,8 +1,7 @@
 #include "include/fb.h"
 #include "include/file.h"
-#include "printf.h"
-#include "ulib.h"
-#include "usyscalls.h"
+#include "libc/stdio.h"
+#include "libc/usyscalls.h"
 #include <stdint.h>
 
 #define DATA_OFFSET_OFFSET 0x000A

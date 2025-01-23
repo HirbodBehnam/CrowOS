@@ -1,7 +1,6 @@
 #include "include/file.h"
-#include "printf.h"
-#include "ulib.h"
-#include "usyscalls.h"
+#include "libc/stdio.h"
+#include "libc/usyscalls.h"
 
 #define BUFFER_SIZE 4096
 

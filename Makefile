@@ -84,10 +84,10 @@ $F/crowfs: $F/crowfs.c $F/main.c
 
 # Userspace
 # Create the syscall assembly file
-$U/usyscalls.S: $U/usyscalls.sh
-	$U/usyscalls.sh > $U/usyscalls.S
+$U/libc/usyscalls.S: $U/libc/usyscalls.sh
+	$U/libc/usyscalls.sh > $U/libc/usyscalls.S
 # Define the userspace libraries
-ULIB = $U/ulib.o $U/usyscalls.o $U/printf.o 
+ULIB = $U/libc/usyscalls.o $U/libc/ctype.o $U/libc/malloc.o $U/libc/stdio.o $U/libc/stdlib.o $U/libc/string.o
 $(ULIB): CFLAGS+=-Iuser -I.
 $(ULIB): ASFLAGS+=-Iuser -I.
 # User programs

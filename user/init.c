@@ -1,7 +1,7 @@
 #include "include/exec.h"
-#include "printf.h"
-#include "ulib.h"
-#include "usyscalls.h"
+#include "libc/stdio.h"
+#include "libc/string.h"
+#include "libc/usyscalls.h"
 
 /**
  * Trims an string from the chars such as \r and \n

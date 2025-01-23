@@ -3,11 +3,13 @@
  * https://github.com/mit-pdos/xv6-riscv/blob/de247db5e6384b138f270e0a7c745989b5a9c23b/kernel/printf.c#L26C1-L51C1
  */
 
-#include "printf.h"
-#include "ulib.h"
+#include "stdio.h"
+#include "include/file.h"
 #include "usyscalls.h"
-#include <stdarg.h>
 #include <stdint.h>
+
+// Default file descriptors used in Linux
+int stdin = DEFAULT_STDIN, stdout = DEFAULT_STDOUT, stderr = DEFAULT_STDERR;
 
 static const char *digits = "0123456789abcdef";
 
@@ -43,7 +45,7 @@ static void print_ptr(int fd, uint64_t x) {
 }
 
 // Print to a file descriptor
-static void vprintf(int fd, const char *fmt, va_list ap) {
+void vprintf(int fd, const char *fmt, va_list ap) {
   int i, cx, c0, c1, c2;
   char *s;
 
@@ -116,6 +118,42 @@ void printf(const char *fmt, ...) {
   va_start(ap, fmt);
   vprintf(stdout, fmt, ap);
 }
+
+void puts(const char *s) {
+  for (; *s; s++)
+    write(stdout, s, 1);
+  const char new_line = '\n';
+  write(stdout, &new_line, 1);
+}
+
+char *gets(char *buf, int max) {
+  char c;
+  int i;
+
+  for (i = 0; i + 1 < max;) {
+    int cc = read(stdin, &c, 1);
+    if (cc < 1) // end of stream
+      break;
+    // Check for backspace
+    if (c == 127) { // DEL ASCII
+      if (i == 0)   // Do not allow backspace at the first of buffer
+        continue;
+      // Remove from buffer
+      i--;
+      // Remove from console
+      write(stdout, "\b \b", 3);
+      continue;
+    }
+    // Write to buffer
+    buf[i++] = c;
+    if (c == '\n' || c == '\r')
+      break;
+  }
+  buf[i] = '\0';
+  return buf;
+}
+
+void putchar(char c) { write(stdout, &c, 1); }
 
 void hexdump(const char *buf, size_t size) {
   for (size_t i = 0; i < size; i++) {
