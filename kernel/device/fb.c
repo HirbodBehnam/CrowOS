@@ -21,33 +21,41 @@ void fb_init(struct limine_framebuffer *fb) {
   main_framebuffer = fb;
   current_width = fb->width;
   current_height = fb->height;
-  kprintf("Initialized framebuffer with %llux%llu dimensions\n", current_width,
-          current_height);
+  kprintf("Initialized framebuffer with %llux%llu dimensions and %u bpp\n",
+          current_width, current_height, (uint32_t)fb->bpp);
+  if (fb->bpp != 32)
+    panic("fb_init: expected the framebuffer to be 32 bits per pixel");
 }
 
 /**
  * Show the given buffer in the screen. Size is the size of the buffer in pixels
  * (4 bytes). Note that the buffer will fill the screen based on the
  * current_width and current_height values which can be set from the fb control.
+ * To make things easier for you, we suggest to use struct FramebufferPixel
+ * defined in "include/fb.h" as the buffer array.
  */
 int fb_write(const char *buffer, size_t size) {
   if (main_framebuffer == NULL)
     return -1;
-  uint32_t *fb_ptr = main_framebuffer->address;
+  struct FramebufferPixel *fb_ptr =
+      (struct FramebufferPixel *)main_framebuffer->address;
+  const struct FramebufferPixel *given_buffer =
+      (struct FramebufferPixel *)buffer;
   // Copy each row
   size_t row = 0, displayed = 0;
   while (size > current_width && row < current_height) {
-    memcpy(&fb_ptr[row * (main_framebuffer->pitch / 4)], buffer,
+    memcpy(&fb_ptr[row * (main_framebuffer->pitch / 4)], given_buffer,
            current_width * 4);
     // Advance the row and reduce the remaining pixels
     row++;
     displayed += current_width;
-    buffer += current_width;
+    given_buffer += current_width;
     size -= current_width;
   }
   // Copy the final remaining row
   if (row < current_height && size != 0) {
-    memcpy(&fb_ptr[row * (main_framebuffer->pitch / 4)], buffer, size * 4);
+    memcpy(&fb_ptr[row * (main_framebuffer->pitch / 4)], given_buffer,
+           size * 4);
     displayed += size;
   }
 
@@ -92,6 +100,11 @@ int fb_control(int command, void *data) {
     } else { // invalid height
       return -3;
     }
+  case FRAMEBUFFER_CTL_CLEAR:
+    memset(main_framebuffer->address, 0,
+           main_framebuffer->width * main_framebuffer->height *
+               main_framebuffer->bpp / 4);
+    return 0;
   default:
     return -2;
   }

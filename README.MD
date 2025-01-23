@@ -13,7 +13,8 @@ Writing an operating system for x86_64 for fun on top of [Limine](https://github
     - [x] Wait
     - [x] Shell
     - [ ] Preemptive scheduling
-- [ ] File System
+    - [ ] Floating Point (SSE/80387)
+- [x] File System
     - [x] NVMe driver
     - [x] CrowFS file system
     - [x] Device Files
@@ -26,7 +27,8 @@ Writing an operating system for x86_64 for fun on top of [Limine](https://github
     - [ ] Rename
     - [ ] Relative paths
 - [x] CMOS RTC
-- [ ] VGA/Framebuffer
+- [x] VGA/Framebuffer
+    - [x] BMP viewer
     - [ ] Framebuffer console
 - [ ] PS2 Keyboard Driver
 - [ ] Multiprocessor/SMP

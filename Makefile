@@ -95,6 +95,7 @@ UPROGS=$U/_init \
 	$U/_echo \
 	$U/_cat \
 	$U/_date \
+	$U/_bmp \
 
 %.o: CFLAGS+=-Iuser -I.
 %.o: ASFLAGS+=-Iuser -I.
@@ -121,6 +122,7 @@ boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI $F/crowfs $(UPROGS)
 	for prog in $(UPROGS); do \
 		sudo $F/crowfs /dev/loop0p2 copyin $$prog /$$(cut -d _ -f 2 <<< $$prog) ; \
 	done
+	sudo $F/crowfs /dev/loop0p2 copyin $U/sample.bmp /sample.bmp
 # Unmount the OS partition
 	sudo losetup -d /dev/loop0
 
