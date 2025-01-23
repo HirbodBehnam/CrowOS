@@ -2,7 +2,7 @@
 echo '#include "include/syscall.h"'
 echo ".section .text"
 echo ".intel_syntax noprefix" # fuck AT&T
-for syscall in "read" "write" "open" "close" "sbrk" "exec" "exit" "wait" "lseek" "time" "sleep"; do
+for syscall in "read" "write" "open" "close" "sbrk" "exec" "exit" "wait" "lseek" "time" "sleep" "ioctl"; do
 	echo ".globl $syscall"
 	echo ".type $syscall, @function"
 	echo "$syscall:"

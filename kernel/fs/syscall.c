@@ -112,3 +112,26 @@ int sys_lseek(int fd, int64_t offset, int whence) {
     return -1;
   }
 }
+
+/**
+ * Sends a command to a device and returns the result of the command or the
+ * input in the third argument.
+ */
+int sys_ioctl(int fd, int command, void *data) {
+  // Is this fd valid?
+  struct process *p = my_process();
+  if (fd < 0 || fd > MAX_OPEN_FILES || p->open_files[fd].type == FD_EMPTY)
+    return -1;
+
+  switch (p->open_files[fd].type) {
+  case FD_INODE: // Files are not valid
+    return -1;
+  case FD_DEVICE:
+    struct device *dev = device_get(p->open_files[fd].structures.device);
+    if (dev == NULL || dev->control == NULL)
+      return -1;
+    return dev->control(command, data);
+  default: // not implemented
+    return -1;
+  }
+}

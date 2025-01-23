@@ -9,3 +9,4 @@
 #define SYSCALL_LSEEK 8
 #define SYSCALL_TIME  9
 #define SYSCALL_SLEEP 10
+#define SYSCALL_IOCTL 11

@@ -44,6 +44,7 @@ KOBJS=$K/init.o \
 	$K/cpu/isr.o \
 	$K/cpu/trap.o \
 	$K/cpu/snippets.o \
+	$K/device/fb.o \
 	$K/device/nvme.o \
 	$K/device/pcie.o \
 	$K/device/pic.o \

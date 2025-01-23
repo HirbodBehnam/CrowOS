@@ -62,6 +62,8 @@ uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2,
   case SYSCALL_SLEEP:
     sys_sleep(a1);
     return 0;
+  case SYSCALL_IOCTL:
+    return sys_ioctl((int)a1, (int)a2, (void *)a3);
 
   default:
     return -1;

@@ -1,5 +1,6 @@
 #include "device.h"
 #include "common/lib.h"
+#include "device/fb.h"
 #include "device/serial_port.h"
 #include "userspace/proc.h"
 #include <stddef.h>
@@ -8,18 +9,29 @@
 /**
  * List of all devices which user can use
  */
-static struct device devices[] = {{
-                                      .name = SERIAL_DEVICE_NAME,
-                                      .read = serial_read,
-                                      .write = serial_write,
-                                      .lseek = NULL, // no seek
-                                  },
-                                  {
-                                      .name = SERIAL_ASYNC_DEVICE_NAME,
-                                      .read = serial_read_async,
-                                      .write = serial_write,
-                                      .lseek = NULL, // no seek
-                                  }};
+static struct device devices[] = {
+    {
+        .name = SERIAL_DEVICE_NAME,
+        .read = serial_read,
+        .write = serial_write,
+        .lseek = NULL, // no seek
+        .control = NULL,
+    },
+    {
+        .name = SERIAL_ASYNC_DEVICE_NAME,
+        .read = serial_read_async,
+        .write = serial_write,
+        .lseek = NULL, // no seek
+        .control = NULL,
+    },
+    {
+        .name = FRAMEBUFFER_DEVICE_NAME,
+        .read = NULL,
+        .write = fb_write,
+        .lseek = NULL,
+        .control = fb_control,
+    },
+};
 
 // Number of devices which we support
 #define DEVICES_SIZE (sizeof(devices) / sizeof(devices[0]))

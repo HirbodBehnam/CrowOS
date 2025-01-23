@@ -4,6 +4,7 @@
 #include "cpu/gdt.h"
 #include "cpu/idt.h"
 #include "cpu/smp.h"
+#include "device/fb.h"
 #include "device/nvme.h"
 #include "device/pcie.h"
 #include "device/pic.h"
@@ -46,6 +47,12 @@ __attribute__((
         .revision = 0,
 };
 
+// Get the framebuffer
+__attribute__((
+    used,
+    section(".requests"))) static volatile struct limine_framebuffer_request
+    framebuffer_request = {.id = LIMINE_FRAMEBUFFER_REQUEST, .revision = 0};
+
 // Finally, define the start and end markers for the Limine requests.
 // These can also be moved anywhere, to any .c file, as seen fit.
 __attribute__((used,
@@ -84,6 +91,13 @@ void kmain(void) {
   // Initialize the TSS
   tss_init_and_load();
 
+  // Setup the real time clock
+  rtc_init();
+
+  // Setup frame buffer if available
+  if (framebuffer_request.response != NULL && framebuffer_request.response->framebuffer_count > 0)
+    fb_init(framebuffer_request.response->framebuffers[0]);
+
   // Setup IOAPIC to get interrupts. PIC is disabled via Limine spec
   ioapic_init();
   serial_init_interrupt();
@@ -113,8 +127,6 @@ void kmain(void) {
 
   // Initialize syscall on each core
   syscall_init();
-
-  rtc_init();
 
   // Run the scheduler to schedule processes
   kprintf("Master Core Initiated\n");

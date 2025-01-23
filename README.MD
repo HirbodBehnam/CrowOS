@@ -25,8 +25,9 @@ Writing an operating system for x86_64 for fun on top of [Limine](https://github
     - [ ] File removal
     - [ ] Rename
     - [ ] Relative paths
-- [ ] CMOS RTC
+- [x] CMOS RTC
 - [ ] VGA/Framebuffer
+    - [ ] Framebuffer console
 - [ ] PS2 Keyboard Driver
 - [ ] Multiprocessor/SMP
 - [ ] DOOM

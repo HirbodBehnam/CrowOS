@@ -14,6 +14,8 @@ struct device {
   int (*write)(const char *, size_t);
   // Seek while reading or writing to this device
   int (*lseek)(int64_t, int);
+  // Control the options for this device. Might get or set values.
+  int (*control)(int, void *);
 };
 
 int device_index(const char *name);
