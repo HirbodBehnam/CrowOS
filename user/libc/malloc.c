@@ -5,6 +5,7 @@
 
 // Memory allocator by Kernighan and Ritchie,
 // The C programming Language, 2nd ed.  Section 8.7.
+// From https://github.com/mit-pdos/xv6-riscv/tree/riscv/user
 
 typedef long Align;
 

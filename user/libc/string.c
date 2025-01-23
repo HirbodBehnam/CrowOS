@@ -1,5 +1,12 @@
+/**
+ * Some of these functions are from
+ * https://android.googlesource.com/platform/bionic/+/ics-mr0/libc/string and
+ * the others are from https://github.com/mit-pdos/xv6-riscv/tree/riscv/user
+ */
+
 #include "string.h"
 #include "ctype.h"
+#include "stdlib.h"
 #include <stdint.h>
 
 void *memcpy(void *dest, const void *src, size_t n) {
@@ -152,4 +159,13 @@ char *strstr(const char *s, const char *find) {
     s--;
   }
   return ((char *)s);
+}
+
+char *strdup(const char *s) {
+  size_t string_length = strlen(s);
+  char *new_string = malloc(string_length + 1);
+  if (new_string == NULL)
+    return NULL;
+  memcpy(new_string, s, string_length + 1);
+  return new_string;
 }
