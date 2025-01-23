@@ -4,6 +4,8 @@
  */
 
 #include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
 #include "include/file.h"
 #include "usyscalls.h"
 #include <stdint.h>
@@ -15,10 +17,12 @@ static const char *digits = "0123456789abcdef";
 
 static void print_char(int fd, char c) { write(fd, &c, sizeof(c)); }
 
-static void print_int(int fd, long long xx, int base, int sign) {
+static void print_int(int fd, long long xx, int base, int sign, int padding) {
   char buf[20];
   int i;
   unsigned long long x;
+
+  memset(buf, '0', sizeof(buf));
 
   if (sign && (sign = (xx < 0)))
     x = -xx;
@@ -29,6 +33,8 @@ static void print_int(int fd, long long xx, int base, int sign) {
   do {
     buf[i++] = digits[x % base];
   } while ((x /= base) != 0);
+
+  i = i > padding ? i : padding;
 
   if (sign)
     buf[i++] = '-';
@@ -38,10 +44,12 @@ static void print_int(int fd, long long xx, int base, int sign) {
 }
 
 static void sprint_int(char **str, const char *str_end, long long xx, int base,
-                       int sign) {
+                       int sign, int padding) {
   char buf[20];
   int i;
   unsigned long long x;
+
+  memset(buf, '0', sizeof(buf));
 
   if (sign && (sign = (xx < 0)))
     x = -xx;
@@ -52,6 +60,8 @@ static void sprint_int(char **str, const char *str_end, long long xx, int base,
   do {
     buf[i++] = digits[x % base];
   } while ((x /= base) != 0);
+
+  i = i > padding ? i : padding;
 
   if (sign)
     buf[i++] = '-';
@@ -105,29 +115,34 @@ void vfprintf(int fd, const char *fmt, va_list ap) {
       c1 = fmt[i + 1] & 0xff;
     if (c1)
       c2 = fmt[i + 2] & 0xff;
-    if (c0 == 'd') {
-      print_int(fd, va_arg(ap, int), 10, 1);
+    if (c0 == 'd' || c0 == 'i') {
+      print_int(fd, va_arg(ap, int), 10, 1, 0);
+    } else if (c0 == '.' && c2 == 'd') {
+      // For now, we only support single digit paddings
+      int padding = c1 - '0';
+      print_int(fd, va_arg(ap, int), 10, 1, padding);
+      i += 2;
     } else if (c0 == 'l' && c1 == 'd') {
-      print_int(fd, va_arg(ap, uint64_t), 10, 1);
+      print_int(fd, va_arg(ap, uint64_t), 10, 1, 0);
       i += 1;
     } else if (c0 == 'l' && c1 == 'l' && c2 == 'd') {
-      print_int(fd, va_arg(ap, uint64_t), 10, 1);
+      print_int(fd, va_arg(ap, uint64_t), 10, 1, 0);
       i += 2;
     } else if (c0 == 'u') {
-      print_int(fd, va_arg(ap, int), 10, 0);
+      print_int(fd, va_arg(ap, int), 10, 0, 0);
     } else if (c0 == 'l' && c1 == 'u') {
-      print_int(fd, va_arg(ap, uint64_t), 10, 0);
+      print_int(fd, va_arg(ap, uint64_t), 10, 0, 0);
       i += 1;
     } else if (c0 == 'l' && c1 == 'l' && c2 == 'u') {
-      print_int(fd, va_arg(ap, uint64_t), 10, 0);
+      print_int(fd, va_arg(ap, uint64_t), 10, 0, 0);
       i += 2;
     } else if (c0 == 'x') {
-      print_int(fd, va_arg(ap, int), 16, 0);
+      print_int(fd, va_arg(ap, int), 16, 0, 0);
     } else if (c0 == 'l' && c1 == 'x') {
-      print_int(fd, va_arg(ap, uint64_t), 16, 0);
+      print_int(fd, va_arg(ap, uint64_t), 16, 0, 0);
       i += 1;
     } else if (c0 == 'l' && c1 == 'l' && c2 == 'x') {
-      print_int(fd, va_arg(ap, uint64_t), 16, 0);
+      print_int(fd, va_arg(ap, uint64_t), 16, 0, 0);
       i += 2;
     } else if (c0 == 'p') {
       print_ptr(fd, va_arg(ap, uint64_t));
@@ -182,29 +197,34 @@ void vsnprintf(char *str, size_t size, const char *fmt, va_list ap) {
       c1 = fmt[i + 1] & 0xff;
     if (c1)
       c2 = fmt[i + 2] & 0xff;
-    if (c0 == 'd') {
-      sprint_int(&str, string_end, va_arg(ap, int), 10, 1);
+    if (c0 == 'd' || c0 == 'i') {
+      sprint_int(&str, string_end, va_arg(ap, int), 10, 1, 0);
+    } else if (c0 == '.' && c2 == 'd') {
+      // For now, we only support single digit paddings
+      int padding = c1 - '0';
+      sprint_int(&str, string_end, va_arg(ap, int), 10, 1, padding);
+      i += 2;
     } else if (c0 == 'l' && c1 == 'd') {
-      sprint_int(&str, string_end, va_arg(ap, uint64_t), 10, 1);
+      sprint_int(&str, string_end, va_arg(ap, uint64_t), 10, 1, 0);
       i += 1;
     } else if (c0 == 'l' && c1 == 'l' && c2 == 'd') {
-      sprint_int(&str, string_end, va_arg(ap, uint64_t), 10, 1);
+      sprint_int(&str, string_end, va_arg(ap, uint64_t), 10, 1, 0);
       i += 2;
     } else if (c0 == 'u') {
-      sprint_int(&str, string_end, va_arg(ap, int), 10, 0);
+      sprint_int(&str, string_end, va_arg(ap, int), 10, 0, 0);
     } else if (c0 == 'l' && c1 == 'u') {
-      sprint_int(&str, string_end, va_arg(ap, uint64_t), 10, 0);
+      sprint_int(&str, string_end, va_arg(ap, uint64_t), 10, 0, 0);
       i += 1;
     } else if (c0 == 'l' && c1 == 'l' && c2 == 'u') {
-      sprint_int(&str, string_end, va_arg(ap, uint64_t), 10, 0);
+      sprint_int(&str, string_end, va_arg(ap, uint64_t), 10, 0, 0);
       i += 2;
     } else if (c0 == 'x') {
-      sprint_int(&str, string_end, va_arg(ap, int), 16, 0);
+      sprint_int(&str, string_end, va_arg(ap, int), 16, 0, 0);
     } else if (c0 == 'l' && c1 == 'x') {
-      sprint_int(&str, string_end, va_arg(ap, uint64_t), 16, 0);
+      sprint_int(&str, string_end, va_arg(ap, uint64_t), 16, 0, 0);
       i += 1;
     } else if (c0 == 'l' && c1 == 'l' && c2 == 'x') {
-      sprint_int(&str, string_end, va_arg(ap, uint64_t), 16, 0);
+      sprint_int(&str, string_end, va_arg(ap, uint64_t), 16, 0, 0);
       i += 2;
     } else if (c0 == 'p') {
       sprint_ptr(&str, string_end, va_arg(ap, uint64_t));

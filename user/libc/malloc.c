@@ -23,6 +23,9 @@ static Header base;
 static Header *freep;
 
 void free(void *ap) {
+  if (ap == NULL)
+    return;
+  
   Header *bp, *p;
 
   bp = (Header *)ap - 1;
@@ -93,6 +96,13 @@ void *calloc(size_t nmemb, size_t size) {
 }
 
 void *realloc(void *ptr, size_t size) {
+  if (ptr == NULL)
+    return malloc(size);
+  if (size == 0) {
+    free(ptr);
+    return NULL;
+  }
+
   Header *header = (Header *)ptr - 1;
   if (size == header->s.size)
     return ptr; // no resize
