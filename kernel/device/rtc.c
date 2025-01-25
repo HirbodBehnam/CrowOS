@@ -88,19 +88,6 @@ static uint64_t quick_pit_calibrate(void) {
       delta -= tsc;
 
       /*
-       * Extrapolate the error and fail fast if the error will
-       * never be below 500 ppm.
-       */
-      if (i == 1 && d1 + d2 >= (delta * MAX_QUICK_PIT_ITERATIONS) >> 11)
-        return 0;
-
-      /*
-       * Iterate until the error is less than 500 ppm
-       */
-      if (d1 + d2 >= delta >> 11)
-        continue;
-
-      /*
        * Check the PIT one more time to verify that
        * all TSC reads were stable wrt the PIT.
        *
