@@ -42,6 +42,12 @@ At first, you need to clone this project and submodules. This means that you sho
 git clone --recurse-submodules -j2 https://github.com/HirbodBehnam/CrowOS
 ```
 
+For the build dependencies, you can use the following command in Ubuntu to get everything:
+
+```bash
+apt install qemu-system-x86 build-essential gdisk git mtools
+```
+
 Next, you only need to run `make qemu` to run the OS under emulation. You can use `make qemu-kvm` in order to run the OS with virtualization.
 
 For debugging, use `make qemu-gdb` and run `gdb` in another window. `gdb` will automatically connect to `qemu` and stop.
