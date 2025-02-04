@@ -244,7 +244,7 @@ void sys_sleep(uint64_t msec) {
  */
 void scheduler_init(void) {
   const char *args[] = {"/init", NULL};
-  if (proc_exec("/init", args) == (uint64_t)-1)
+  if (proc_exec("/init", args, fs_get_root()) == (uint64_t)-1)
     panic("cannot create /init process");
   kprintf("Initialized first userprog\n");
 }

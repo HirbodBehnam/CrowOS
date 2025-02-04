@@ -50,7 +50,7 @@ uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2,
   case SYSCALL_SBRK:
     return (uint64_t)proc_sbrk((int)a1);
   case SYSCALL_EXEC:
-    return proc_exec((const char *)a1, (const char **)a2);
+    return proc_exec((const char *)a1, (const char **)a2, my_process()->working_directory);
   case SYSCALL_EXIT:
     proc_exit((int)a1);
   case SYSCALL_WAIT:

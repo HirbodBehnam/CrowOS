@@ -22,7 +22,7 @@ int file_open(const char *path, uint32_t flags) {
   // Try to open the file
   // Flags for now are very simple.
   uint32_t fs_flags = (flags & O_CREAT) ? CROWFS_O_CREATE : 0;
-  struct fs_inode *inode = fs_open(path, fs_flags);
+  struct fs_inode *inode = fs_open(path, p->working_directory, fs_flags);
   if (inode == NULL)
     return -1;
   // Now open the file

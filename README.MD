@@ -22,17 +22,17 @@ Writing an operating system for x86_64 for fun on top of [Limine](https://github
     - [x] File read
     - [x] File append
     - [x] File creation
-    - [ ] Folder creation
-    - [ ] File removal
+    - [x] Folder creation
+    - [x] File removal
     - [ ] Rename
-    - [ ] Relative paths
+    - [x] Relative paths
 - [x] CMOS RTC
 - [x] VGA/Framebuffer
     - [x] BMP viewer
     - [ ] Framebuffer console
 - [ ] PS2 Keyboard Driver
 - [ ] Multiprocessor/SMP
-- [ ] DOOM
+- [x] DOOM
 
 ## Running
 

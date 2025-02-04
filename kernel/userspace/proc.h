@@ -47,6 +47,8 @@ struct process {
   uint64_t initial_data_segment;
   // The value returned by sbrk(0)
   uint64_t current_sbrk;
+  // Current working directory dnode
+  uint32_t working_directory;
   // The condvar which guards all variables below.
   // Programs might wait on this lock if they are using the wait
   // system call.

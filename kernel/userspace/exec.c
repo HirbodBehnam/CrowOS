@@ -94,18 +94,20 @@ static int load_segment(pagetable_t pagetable, struct fs_inode *ip, uint64_t va,
 
 /**
  * Creates a new process as the child of the running process.
+ * Working directory is the working directory which the parent process
+ * is in.
  *
  * Returns the new PID as the result if successful. Otherwise returns
  * -1 which is an error.
  */
-uint64_t proc_exec(const char *path, const char *args[]) {
+uint64_t proc_exec(const char *path, const char *args[], uint32_t working_directory) {
   (void)args;
   struct ElfHeader elf;
   struct ProgramHeader ph;
   struct process *proc = NULL;
   struct fs_inode *proc_inode = NULL;
   // Open the file
-  proc_inode = fs_open(path, 0);
+  proc_inode = fs_open(path, working_directory, 0);
   if (proc_inode == NULL) // not found?
     goto bad;
   // Read the elf header
@@ -204,6 +206,7 @@ uint64_t proc_exec(const char *path, const char *args[]) {
 
   // We are fucking done!
   fs_close(proc_inode);
+  proc->working_directory = working_directory;
   proc->state = RUNNABLE; // now we can run this!
   return proc->pid;
 bad:

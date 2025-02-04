@@ -22,12 +22,13 @@ struct fs_inode {
   uint32_t reference_count;
 };
 
-struct fs_inode *fs_open(const char *path, uint32_t flags);
+struct fs_inode *fs_open(const char *path, uint32_t relative_to, uint32_t flags);
 void fs_close(struct fs_inode *inode);
 void fs_dup(struct fs_inode *inode);
 int fs_write(struct fs_inode *inode, const char *buffer, size_t len, size_t offset);
 int fs_read(struct fs_inode *inode, char *buffer, size_t len, size_t offset);
-int fs_rename(const char *old_path, const char *new_path);
-int fs_delete(const char *path);
-int fs_mkdir(const char *directory);
+int fs_rename(const char *old_path, const char *new_path, uint32_t relative_to);
+int fs_delete(const char *path, uint32_t relative_to);
+int fs_mkdir(const char *directory, uint32_t relative_to);
+uint32_t fs_get_root(void);
 void fs_init(void);
