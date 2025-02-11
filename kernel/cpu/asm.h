@@ -20,8 +20,6 @@
 #define FLAGS_VIP (1UL << 20)  // Virtual interrupt pending
 #define FLAGS_ID (1UL << 21)   // Able to use CPUID instruction
 
-#define IA32_TSC_AUX 0xC0000103 // The MSR which we store the process ID in
-
 /**
  * Outputs a value to a port using the OUT instruction
  */
@@ -127,16 +125,6 @@ static inline uint64_t get_tsc(void) {
   uint32_t timestamp_low, timestamp_high;
   asm volatile("rdtsc" : "=a"(timestamp_low), "=d"(timestamp_high));
   return ((uint64_t)timestamp_high << 32) | ((uint64_t)timestamp_low);
-}
-
-/**
- * Gets the processor ID of the running processor
- */
-static inline uint32_t get_processor_id(void) {
-  uint32_t timestamp_low, timestamp_high, processor_id;
-  asm volatile("rdtscp"
-               : "=a"(timestamp_low), "=d"(timestamp_high), "=c"(processor_id));
-  return processor_id;
 }
 
 /**

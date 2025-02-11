@@ -42,6 +42,7 @@ KOBJS=$K/init.o \
 	$K/cpu/gdt.o \
 	$K/cpu/idt.o \
 	$K/cpu/isr.o \
+	$K/cpu/smp.o \
 	$K/cpu/trap.o \
 	$K/cpu/snippets.o \
 	$K/device/fb.o \

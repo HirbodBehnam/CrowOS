@@ -70,11 +70,6 @@ void kmain(void) {
   if (LIMINE_BASE_REVISION_SUPPORTED == false)
     halt();
 
-  // Do not start cores if they are larger than supported number of cores
-  wrmsr(IA32_TSC_AUX, 0); // this is core 0
-  if (get_processor_id() >= MAX_CORES)
-    halt();
-
   // Setup new GDT on every core at first
   gdt_init();
 

@@ -32,6 +32,15 @@ struct process_context {
 #define MAX_OPEN_FILES 16
 
 /**
+ * Process specific metadata which we restore just before switching to this
+ * process
+ */
+struct process_data {
+  // The GS segment base which we store in MSR
+  uint64_t gs_base;
+};
+
+/**
  * Each process can be represented with this
  */
 struct process {
@@ -49,6 +58,10 @@ struct process {
   uint64_t current_sbrk;
   // Current working directory dnode
   uint32_t working_directory;
+  // Store some more specific process data here.
+  // We avoid saving/loading these data if the the next process which
+  // is going to be scheduled is the same as the old process.
+  struct process_data additional_data;
   // The condvar which guards all variables below.
   // Programs might wait on this lock if they are using the wait
   // system call.

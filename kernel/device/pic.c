@@ -108,20 +108,12 @@ void ioapic_enable(int irq, int cpunum) {
 #define TDCR (0x03E0 / 4)   // Timer Divide Configuration
 
 /**
- * The address of the local APIC for each CPU core.
- *
- * Also, it's very important to note that this must be uint32_t pointer
- * and writes must be 32 bits wide or else, this won't work.
- */
-static volatile uint32_t *lapic[MAX_CORES];
-
-/**
  * Write a value to local APIC register
  */
 static void lapic_write(int index, int value) {
-  uint32_t core_id = get_processor_id();
-  lapic[core_id][index] = value;
-  lapic[core_id][ID]; // wait for write to finish, by reading
+  volatile uint32_t *lapic = cpu_local()->lapic;
+  lapic[index] = value;
+  lapic[ID]; // wait for write to finish, by reading
 }
 
 /**
@@ -137,7 +129,7 @@ static uintptr_t cpu_get_apic_base(void) {
  * and storing it in a global variable.
  */
 void lapic_init(void) {
-  lapic[get_processor_id()] = (volatile uint32_t *)P2V(cpu_get_apic_base());
+  cpu_local()->lapic = (volatile uint32_t *)P2V(cpu_get_apic_base());
 }
 
 /**

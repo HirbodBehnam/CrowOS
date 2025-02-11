@@ -28,11 +28,6 @@ static uint64_t next_pid = 1;
 static struct process processes[MAX_PROCESSES];
 
 /**
- * Which process are we running?
- */
-static struct process *running_process[MAX_CORES];
-
-/**
  * Atomically get the next PID
  */
 static inline uint64_t get_next_pid(void) {
@@ -45,7 +40,7 @@ extern void context_switch(uint64_t to_rsp, uint64_t *from_rsp);
 /**
  * Gets the current running process of this CPU core
  */
-struct process *my_process(void) { return running_process[get_processor_id()]; }
+struct process *my_process(void) { return cpu_local()->running_process; }
 
 /**
  * Unlocks the current running process's lock. This function
@@ -280,12 +275,12 @@ void scheduler(void) {
       case RUNNABLE:
         processes[i].state = RUNNING; // which are runnable...
         // and make them running and when found
-        running_process[get_processor_id()] = &processes[i];
+        cpu_local()->running_process = &processes[i];
         // switch to its memory space...
         install_pagetable(V2P(processes[i].pagetable));
         // and run it...
         context_switch(processes[i].resume_stack_pointer, &kernel_stackpointer);
-        running_process[get_processor_id()] = NULL;
+        cpu_local()->running_process = NULL;
         // until we return and we do everything again!
         break;
       case EXITED:
