@@ -138,7 +138,7 @@ QEMUOPT += -drive file=boot/disk.img,if=none,id=nvm,format=raw -device nvme,seri
 
 .PHONY: qemu
 qemu: boot/disk.img
-	$(QEMU) -cpu SandyBridge $(QEMUOPT)
+	$(QEMU) $(QEMUOPT)
 
 .PHONY: qemu-kvm
 qemu-kvm: boot/disk.img
@@ -147,7 +147,7 @@ qemu-kvm: boot/disk.img
 .PHONY: qemu-gdb
 qemu-gdb: boot/disk.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
-	$(QEMU) -cpu SandyBridge $(QEMUOPT) -s -S
+	$(QEMU) $(QEMUOPT) -s -S
 
 .PHONY: qemu-kvm-gdb
 qemu-kvm-gdb: boot/disk.img

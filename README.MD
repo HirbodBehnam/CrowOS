@@ -54,6 +54,4 @@ For debugging, use `make qemu-gdb` and run `gdb` in another window. `gdb` will a
 
 ### Hardware Limitations
 
-There is a big limitation on the CPU which the OS should run under and that is the support of [`rdtscp`](https://www.felixcloutier.com/x86/rdtscp) instruction and more specifically, IA32_TSC_AUX MSR which is not available on old CPUs. From my testing, this means that it does not support CPUs older than Sandy Bridge (such as Nehalem or Penryn). For this, I run the emulation under the SandyBridge virtual CPU in QEMU.
-
-Other than that, Limine needs at least 128MB of RAM in order to show the boot menu. The OS itself tho should run on lower amounts of RAM.
+Limine needs at least 128MB of RAM in order to show the boot menu. The OS itself tho should run on lower amounts of RAM. For the CPU, it should work on almost all 64bit Intel Core CPUs. I tested it with Penryn CPUs under QEMU and it looks like that it is working fine.
