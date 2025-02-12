@@ -13,12 +13,15 @@ reload_segments:
     push rax
     retfq
 .reload_CS:
+    # SS must contain the data segment
     mov ax, GDT_KERNEL_DATA_SEGMENT
+    mov ss, ax
+    # Other segments contain zero
+    xor ax, ax
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
-    mov ss, ax
     ret
 
 .global context_switch

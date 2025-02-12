@@ -15,18 +15,13 @@ interrupt_handler_asm:
 	push r9
 	push r10
 	push r11
-	# Save the segment registers. To do so, we can simply save GS segment register
-	# with a push gs instruction. The reason is that all of the segment registers
-	# are the same in our OS and also in x86_64 push gs is a valid instruction
-	# unlike push ds or such.
-	push gs
-	# Move to kernel space
-	mov ax, GDT_KERNEL_DATA_SEGMENT
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
-	mov ss, ax
+	# We shall switch the GS base register if we are not coming from the
+	# kernel space.
+	# Also, for now, FUCK THE NMI AND SHIT (https://wiki.osdev.org/SWAPGS#Complications,_Part_2)
+	cmp BYTE PTR [rsp + 8 * 10], 8
+	je interrupt_handler_asm_skip_swapgs1
+	swapgs
+	interrupt_handler_asm_skip_swapgs1:
 	# Align the stack using the rbp
 	push rbp
 	mov rbp, rsp # RBP is callee saved
@@ -36,11 +31,12 @@ interrupt_handler_asm:
 	# Restore everything
 	mov rsp, rbp
 	pop rbp
-	pop gs
-	mov ax, gs
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
+	# Restore GS base register if needed
+	cmp BYTE PTR [rsp + 8 * 10], 8
+	je interrupt_handler_asm_skip_swapgs2
+	swapgs
+	interrupt_handler_asm_skip_swapgs2:
+	# Restore registers
 	pop r11
 	pop r10
 	pop r9
@@ -57,18 +53,14 @@ interrupt_handler_asm:
 .global syscall_handler_asm
 .type syscall_handler_asm, @function
 syscall_handler_asm:
-	# We cannot directly access the stack pointer so we have to
-	# use rax register. We at first save it to top of the stack and
-	# then use rax to move the rsp to the syscall stack. Then, we will
-	# restore rax.
-	# TODO: Later use swapgs to implement this in a cleaner way
-	mov [SYSCALLSTACK_VIRTUAL_ADDRESS_TOP - 8], rax
-	mov rax, rsp
-	mov [SYSCALLSTACK_VIRTUAL_ADDRESS_TOP - 16], rax
-	# Restore rax
-	mov rax, [SYSCALLSTACK_VIRTUAL_ADDRESS_TOP - 8]
-	# Apply the stack pointer
-	mov rsp, SYSCALLSTACK_VIRTUAL_ADDRESS_TOP - 16
+	swapgs
+	# Now we can access the scratchpad in gs:0
+	# Save the user stack pointer
+	mov [gs:0], rsp
+	# Apply the kernel stack pointer
+	mov rsp, SYSCALLSTACK_VIRTUAL_ADDRESS_TOP
+	# Save the user stack pointer in kernel stack
+	push [gs:0]
 	# Save syscall registers
 	push rcx
 	push r11
@@ -83,6 +75,7 @@ syscall_handler_asm:
 	pop r11
 	pop rcx
 	pop rsp
+	swapgs
 	sysretq
 
 .section .note.GNU-stack

@@ -142,9 +142,12 @@ void tss_init_and_load(void) {
 }
 
 /**
- * Setups the GDT based on the needs of our operating system
+ * Setups the GDT based on the needs of our operating system.
+ * 
+ * Also sets all segment registers except SS and CS to zero.
  */
 void gdt_init(void) {
+  // Add TSS to GDT
   gdt_entries[GDT_TSS_SEGMENT / 8].normal.limit = sizeof(tss);
   const uint64_t tss_address = (uint64_t)&tss;
   gdt_entries[GDT_TSS_SEGMENT / 8].normal.base_low = tss_address & 0xFFFF;

@@ -20,6 +20,10 @@
 #define FLAGS_VIP (1UL << 20)  // Virtual interrupt pending
 #define FLAGS_ID (1UL << 21)   // Able to use CPUID instruction
 
+#define MSR_FS_BASE        0xC0000100
+#define MSR_GS_BASE        0xC0000101
+#define MSR_KERNEL_GS_BASE 0xC0000102
+
 /**
  * Outputs a value to a port using the OUT instruction
  */

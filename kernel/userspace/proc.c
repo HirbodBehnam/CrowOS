@@ -1,4 +1,5 @@
 #include "proc.h"
+#include "common/lib.h"
 #include "common/printf.h"
 #include "cpu/asm.h"
 #include "cpu/smp.h"
@@ -77,6 +78,7 @@ struct process *proc_allocate(void) {
   }
   p->current_sbrk = 0;
   p->initial_data_segment = 0;
+  memset(&p->additional_data, 0, sizeof(p->additional_data));
   return p;
 }
 
@@ -225,10 +227,10 @@ void sys_sleep(uint64_t msec) {
    * reached the desired sleep duration. In each step, we switch back
    * to the scheduler to allow other processes to run.
    */
- 
+
   condvar_lock(&my_process()->lock); // lock before switch back
   while (target_epoch_wakeup > rtc_now()) {
-    proc->state = RUNNABLE; // we can run this again
+    proc->state = RUNNABLE;  // we can run this again
     scheduler_switch_back(); // switch back to allow other processes to run
   }
   condvar_unlock(&my_process()->lock);
@@ -278,6 +280,11 @@ void scheduler(void) {
         cpu_local()->running_process = &processes[i];
         // switch to its memory space...
         install_pagetable(V2P(processes[i].pagetable));
+        // load program values...
+        // It is important to load the gs base in the kernel gs base
+        // in order for it to be swapped with swapgs and be stored in
+        // the main gs base.
+        wrmsr(MSR_KERNEL_GS_BASE, processes[i].additional_data.gs_base);
         // and run it...
         context_switch(processes[i].resume_stack_pointer, &kernel_stackpointer);
         cpu_local()->running_process = NULL;
@@ -295,6 +302,8 @@ void scheduler(void) {
         processes[i].current_sbrk = 0;
         processes[i].initial_data_segment = 0;
         processes[i].pagetable = NULL;
+        memset(&processes[i].additional_data, 0,
+               sizeof(processes[i].additional_data));
         break;
       default:
         break;

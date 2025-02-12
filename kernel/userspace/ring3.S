@@ -20,15 +20,10 @@
 # This function also locks the my_process()->lock before jumping to userspace
 jump_to_ring3:
     call my_process_unlock
-    # Setup the data segments
-    mov rax, GDT_USER_DATA_SEGMENT | 3
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
 
     # Create the interrupt values. See figure 6-9 from Intel Manual Volume 3
-    push rax # SS, set to GDT_USER_DATA_SEGMENT | 3
+    mov rax, GDT_USER_DATA_SEGMENT | 3
+    push rax # SS
     push r14 # Userspace stack
     mov  rax, 0x200 # Only IF is set
     push rax # rflags
@@ -54,6 +49,9 @@ jump_to_ring3:
     xor r13, r13
     xor r14, r14
     xor r15, r15
+
+    # Swap to the process gs
+    swapgs
 
     # Jump to userspace
     iretq

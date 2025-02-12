@@ -73,6 +73,9 @@ void kmain(void) {
   // Setup new GDT on every core at first
   gdt_init();
 
+  // Setup the local core storage
+  cpu_local_setup();
+
   // Initialize serial port
   if (serial_init() != 0)
     halt(); // well shit...
