@@ -97,6 +97,7 @@ UPROGS=$U/_init \
 	$U/_cat \
 	$U/_date \
 	$U/_bmp \
+	$U/_mkdir \
 
 %.o: CFLAGS+=-Iuser -I.
 %.o: ASFLAGS+=-Iuser -I.

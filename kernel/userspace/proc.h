@@ -56,8 +56,8 @@ struct process {
   uint64_t initial_data_segment;
   // The value returned by sbrk(0)
   uint64_t current_sbrk;
-  // Current working directory dnode
-  uint32_t working_directory;
+  // Current working directory inode
+  struct fs_inode *working_directory;
   // Store some more specific process data here.
   // We avoid saving/loading these data if the the next process which
   // is going to be scheduled is the same as the old process.

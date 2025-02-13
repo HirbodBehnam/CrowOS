@@ -87,13 +87,17 @@ static struct {
  * if there is no free inodes or the file does not exists.
  *
  * Flags must correspond to the CrowFS flags.
+ * 
+ * If relative_to is NULL, then open works relative to the root.
  */
-struct fs_inode *fs_open(const char *path, uint32_t relative_to,
+struct fs_inode *fs_open(const char *path, const struct fs_inode *relative_to,
                          uint32_t flags) {
   // Get the dnode from the file system
   uint32_t dnode, parent;
-  int result = crowfs_open_relative(&main_filesystem, path, relative_to, &dnode,
-                                    &parent, flags);
+  uint32_t relative_to_dnode =
+      relative_to == NULL ? main_filesystem.root_dnode : relative_to->dnode;
+  int result = crowfs_open_relative(&main_filesystem, path, relative_to_dnode,
+                                    &dnode, &parent, flags);
   if (result != CROWFS_OK)
     return NULL;
   // Look for an inode
@@ -121,6 +125,8 @@ struct fs_inode *fs_open(const char *path, uint32_t relative_to,
       __atomic_add_fetch(&inode->reference_count, 1, __ATOMIC_RELAXED);
       spinlock_unlock(&fs_inode_list.inodes[i].lock);
       break;
+    } else { // Some other in use file, just unlock the spinlock
+      spinlock_unlock(&fs_inode_list.inodes[i].lock);
     }
   }
   // Did we found an inode? If not, did we found a free inode?
@@ -213,7 +219,7 @@ int fs_read(struct fs_inode *inode, char *buffer, size_t len, size_t offset) {
  * Renames a file or directory and updates all effected inodes.
  */
 int fs_rename(const char *old_path, const char *new_path,
-              uint32_t relative_to) {
+              const struct fs_inode *relative_to) {
   (void)new_path;
   (void)old_path;
   (void)relative_to;
@@ -224,10 +230,10 @@ int fs_rename(const char *old_path, const char *new_path,
  * Deletes a file or empty directory. Will fail if the file/directory is open
  * in a program.
  */
-int fs_delete(const char *path, uint32_t relative_to) {
+int fs_delete(const char *path, const struct fs_inode *relative_to) {
   uint32_t dnode, parent_dnode;
-  int result = crowfs_open_relative(&main_filesystem, path, relative_to, &dnode,
-                                    &parent_dnode, 0);
+  int result = crowfs_open_relative(&main_filesystem, path, relative_to->dnode,
+                                    &dnode, &parent_dnode, 0);
   if (result != CROWFS_OK)
     return -1; // does not exist
   result = crowfs_delete(&main_filesystem, dnode, parent_dnode);
@@ -239,21 +245,14 @@ int fs_delete(const char *path, uint32_t relative_to) {
 /**
  * Creates an empty directory.
  */
-int fs_mkdir(const char *directory, uint32_t relative_to) {
+int fs_mkdir(const char *directory, const struct fs_inode *relative_to) {
   uint32_t dnode, parent_dnode;
-  int result =
-      crowfs_open_relative(&main_filesystem, directory, relative_to, &dnode,
-                           &parent_dnode, CROWFS_O_CREATE | CROWFS_O_DIR);
+  int result = crowfs_open_relative(&main_filesystem, directory,
+                                    relative_to->dnode, &dnode, &parent_dnode,
+                                    CROWFS_O_CREATE | CROWFS_O_DIR);
   if (result != CROWFS_OK)
     return -1;
   return 0;
-}
-
-/**
- * Gets the root's dnode from the file system
- */
-uint32_t fs_get_root(void) {
-  return main_filesystem.root_dnode;
 }
 
 /**

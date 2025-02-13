@@ -70,6 +70,8 @@ uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2,
     return sys_unlink((const char *) a1);
   case SYSCALL_MKDIR:
     return sys_mkdir((const char *) a1);
+  case SYSCALL_CHDIR:
+    return sys_chdir((const char *) a1);
 
   default:
     return -1;

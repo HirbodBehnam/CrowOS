@@ -2,6 +2,7 @@
 #include "libc/stdio.h"
 #include "libc/string.h"
 #include "libc/usyscalls.h"
+#include <stdbool.h>
 
 /**
  * Trims an string from the chars such as \r and \n
@@ -18,6 +19,21 @@ static void trim_string(char *string) {
 // Defines these in global scope to avoid stack overflow
 static char *args[MAX_ARGV];
 static char input_buffer[512];
+
+/**
+ * Checks if a command is a cd command and changes the directory
+ * if it is. It will return true if the command is a cd command
+ * otherwise, false is returned.
+ */
+bool handle_cd(void) {
+  if (strcmp(args[0], "cd") != 0)
+    return false; // not a cd command
+  
+  int result = chdir(args[1]);
+  if (result != 0)
+    puts("cannot change directory");
+  return true;
+}
 
 int main() {
   puts("Welcome to CrowOS!");
@@ -41,6 +57,10 @@ int main() {
       args[i] = breaking_point;
     }
     args[i] = NULL; // terminate the arguments
+    // Check for cd command
+    if (handle_cd())
+      continue;
+    // Nope, normal command
     int pid = exec(args[0], args);
     if (pid < 0) {
       printf("Cannot execute %s: %d\n", args[0], pid);

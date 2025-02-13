@@ -1,4 +1,5 @@
 #include "syscall.h"
+#include "CrowFS/crowfs.h"
 #include "device.h"
 #include "file.h"
 #include "include/file.h"
@@ -164,4 +165,20 @@ int sys_unlink(const char *path) {
  */
 int sys_mkdir(const char *directory) {
   return fs_mkdir(directory, my_process()->working_directory);
+}
+
+/**
+ * Changes the working directory of the current process to
+ * the given relative path.
+ */
+int sys_chdir(const char *directory) {
+  struct process *p = my_process();
+  struct fs_inode *new_chdir =
+      fs_open(directory, p->working_directory, CROWFS_O_DIR);
+  if (new_chdir == NULL) // not found
+    return -1;
+  // Free the old inode
+  fs_close(p->working_directory);
+  p->working_directory = new_chdir;
+  return 0;
 }

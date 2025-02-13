@@ -1,7 +1,7 @@
 #pragma once
+#include "common/spinlock.h"
 #include <stddef.h>
 #include <stdint.h>
-#include "common/spinlock.h"
 
 // Each inode which represents a dnode and a reference counted
 // value which represents the number of files which are using this
@@ -22,13 +22,15 @@ struct fs_inode {
   uint32_t reference_count;
 };
 
-struct fs_inode *fs_open(const char *path, uint32_t relative_to, uint32_t flags);
+struct fs_inode *fs_open(const char *path, const struct fs_inode *relative_to,
+                         uint32_t flags);
 void fs_close(struct fs_inode *inode);
 void fs_dup(struct fs_inode *inode);
-int fs_write(struct fs_inode *inode, const char *buffer, size_t len, size_t offset);
+int fs_write(struct fs_inode *inode, const char *buffer, size_t len,
+             size_t offset);
 int fs_read(struct fs_inode *inode, char *buffer, size_t len, size_t offset);
-int fs_rename(const char *old_path, const char *new_path, uint32_t relative_to);
-int fs_delete(const char *path, uint32_t relative_to);
-int fs_mkdir(const char *directory, uint32_t relative_to);
-uint32_t fs_get_root(void);
+int fs_rename(const char *old_path, const char *new_path,
+              const struct fs_inode *relative_to);
+int fs_delete(const char *path, const struct fs_inode *relative_to);
+int fs_mkdir(const char *directory, const struct fs_inode *relative_to);
 void fs_init(void);

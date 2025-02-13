@@ -2,6 +2,7 @@
 #include "common/lib.h"
 #include "common/printf.h"
 #include "device/serial_port.h"
+#include "CrowFS/crowfs.h"
 #include "fs/device.h"
 #include "fs/fs.h"
 #include "include/exec.h"
@@ -100,8 +101,8 @@ static int load_segment(pagetable_t pagetable, struct fs_inode *ip, uint64_t va,
  * Returns the new PID as the result if successful. Otherwise returns
  * -1 which is an error.
  */
-uint64_t proc_exec(const char *path, const char *args[], uint32_t working_directory) {
-  (void)args;
+uint64_t proc_exec(const char *path, const char *args[],
+                   struct fs_inode *working_directory) {
   struct ElfHeader elf;
   struct ProgramHeader ph;
   struct process *proc = NULL;
@@ -138,7 +139,8 @@ uint64_t proc_exec(const char *path, const char *args[], uint32_t working_direct
     if (load_segment(proc->pagetable, proc_inode, ph.vaddr, ph.off, ph.filesz) <
         0)
       goto bad;
-    proc->initial_data_segment = MAX_SAFE(proc->initial_data_segment, ph.vaddr + PAGE_ROUND_UP(ph.memsz));
+    proc->initial_data_segment = MAX_SAFE(proc->initial_data_segment,
+                                          ph.vaddr + PAGE_ROUND_UP(ph.memsz));
   }
   // Write the arguments to the user stack
   uint64_t rsp = USER_STACK_TOP;
@@ -206,6 +208,12 @@ uint64_t proc_exec(const char *path, const char *args[], uint32_t working_direct
 
   // We are fucking done!
   fs_close(proc_inode);
+  if (working_directory == NULL)
+    working_directory = fs_open("/", NULL, CROWFS_O_DIR);
+  else
+    fs_dup(working_directory);
+  if (working_directory == NULL)
+    panic("exec: NULL working directory");
   proc->working_directory = working_directory;
   proc->state = RUNNABLE; // now we can run this!
   return proc->pid;
