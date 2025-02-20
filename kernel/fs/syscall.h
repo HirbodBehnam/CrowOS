@@ -11,3 +11,4 @@ int sys_rename(const char *old_path, const char *new_path);
 int sys_unlink(const char *path);
 int sys_mkdir(const char *directory);
 int sys_chdir(const char *directory);
+int sys_readdir(int fd, void *buffer, size_t len);

@@ -19,6 +19,7 @@ int rename(const char *, const char *);
 int unlink(const char *);
 int mkdir(const char *);
 int chdir(const char *);
+int readdir(int fd, void *buffer, size_t len);
 
 // Yield the program and give the time slice to another program
 static inline void yield(void) { __asm__ volatile("int 0x80"); }

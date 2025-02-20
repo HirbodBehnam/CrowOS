@@ -72,6 +72,8 @@ uint64_t syscall_c(uint64_t syscall_number, uint64_t a1, uint64_t a2,
     return sys_mkdir((const char *) a1);
   case SYSCALL_CHDIR:
     return sys_chdir((const char *) a1);
+  case SYSCALL_READDIR:
+    return sys_readdir((int)a1, (void *)a2, (size_t)a3);
 
   default:
     return -1;

@@ -21,7 +21,11 @@ int file_open(const char *path, uint32_t flags) {
   // of single threaded.
   // Try to open the file
   // Flags for now are very simple.
-  uint32_t fs_flags = (flags & O_CREAT) ? CROWFS_O_CREATE : 0;
+  uint32_t fs_flags = 0;
+  if (flags & O_CREAT)
+    fs_flags |= CROWFS_O_CREATE;
+  if (flags & O_DIR)
+    fs_flags |= CROWFS_O_DIR;
   struct fs_inode *inode = fs_open(path, p->working_directory, fs_flags);
   if (inode == NULL)
     return -1;
@@ -31,6 +35,8 @@ int file_open(const char *path, uint32_t flags) {
   p->open_files[fd].offset = 0;
   p->open_files[fd].readble = (flags & O_WRONLY) == 0;
   p->open_files[fd].writable = (flags & O_WRONLY) || (flags & O_RDWR);
+  // TODO: If we are creating a directory and the parent directory is open
+  // somewhere, we shall update the number of entries in the parent directory.
   return fd;
 }
 

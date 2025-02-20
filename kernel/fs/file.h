@@ -15,7 +15,9 @@ struct process_file {
     // If the file is FD_DEVICE, this is the device number of it
     int device;
   } structures;
-  // The offset which the file is read
+  // The offset which the file is read.
+  // In directories, this value is basically the number of entries read in
+  // the current directory.
   uint32_t offset;
   // Can we read from this file?
   bool readble;

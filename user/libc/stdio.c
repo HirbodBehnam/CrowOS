@@ -4,9 +4,9 @@
  */
 
 #include "stdio.h"
+#include "include/file.h"
 #include "stdlib.h"
 #include "string.h"
-#include "include/file.h"
 #include "usyscalls.h"
 #include <stdint.h>
 
@@ -153,6 +153,8 @@ void vfprintf(int fd, const char *fmt, va_list ap) {
         print_char(fd, *s);
     } else if (c0 == '%') {
       print_char(fd, '%');
+    } else if (c0 == 'c') {
+      print_char(fd, (char)va_arg(ap, int));
     } else if (c0 == 0) {
       break;
     } else {
@@ -237,6 +239,9 @@ void vsnprintf(char *str, size_t size, const char *fmt, va_list ap) {
       }
     } else if (c0 == '%') {
       *str = '%';
+      str++;
+    } else if (c0 == 'c') {
+      *str = (char)va_arg(ap, int);
       str++;
     } else if (c0 == 0) {
       break;

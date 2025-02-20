@@ -1,5 +1,6 @@
 #include "syscall.h"
 #include "CrowFS/crowfs.h"
+#include "common/printf.h"
 #include "device.h"
 #include "file.h"
 #include "include/file.h"
@@ -155,6 +156,9 @@ int sys_rename(const char *old_path, const char *new_path) {
  * On success, zero is returned.  On error, -1 is returned.
  */
 int sys_unlink(const char *path) {
+  // TODO: If we are deleting an entry and the parent directory is open
+  // somewhere, we shall update the number of entries in the parent directory's
+  // inode struct.
   return fs_delete(path, my_process()->working_directory);
 }
 
@@ -181,4 +185,29 @@ int sys_chdir(const char *directory) {
   fs_close(p->working_directory);
   p->working_directory = new_chdir;
   return 0;
+}
+
+/**
+ * Reads the content of a directory into the given buffer.
+ * Returns the number of entries read or a negative item if
+ * there was an error. If the result is zero, it means that either
+ * the buffer is so small that nothing can be read or we have reached
+ * the end of the directory.
+ * The len must be the size of the given buffer.
+ * Buffer will contain an array of dirent type defined in file.h
+ */
+int sys_readdir(int fd, void *buffer, size_t len) {
+  struct process *p = my_process();
+  if (p == NULL)
+    panic("sys_readdir: no process");
+  if (fd < 0 || fd >= MAX_OPEN_FILES || p->open_files[fd].type != FD_INODE)
+    panic("sys_readdir: fd");
+  // Read the directories
+  int result = fs_readdir(p->open_files[fd].structures.inode, buffer, len,
+                          p->open_files[fd].offset);
+  if (result <= 0)
+    return result;
+  // Save how many entries we have read
+  p->open_files[fd].offset += result;
+  return result;
 }

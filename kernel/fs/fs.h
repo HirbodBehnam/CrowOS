@@ -15,8 +15,7 @@ struct fs_inode {
   uint32_t dnode;
   // The parent of this file/directory. This is always a directory
   uint32_t parent_dnode;
-  // Size of the file.
-  // Not used in directories.
+  // Size of the file or number of entries in a directory
   uint32_t size;
   // How many of file are using this inode
   uint32_t reference_count;
@@ -33,4 +32,6 @@ int fs_rename(const char *old_path, const char *new_path,
               const struct fs_inode *relative_to);
 int fs_delete(const char *path, const struct fs_inode *relative_to);
 int fs_mkdir(const char *directory, const struct fs_inode *relative_to);
+int fs_readdir(const struct fs_inode *inode, void *buffer, size_t len,
+               int offset);
 void fs_init(void);

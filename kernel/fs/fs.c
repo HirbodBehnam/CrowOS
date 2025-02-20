@@ -5,6 +5,7 @@
 #include "common/spinlock.h"
 #include "device/nvme.h"
 #include "device/rtc.h"
+#include "include/file.h"
 #include "mem/mem.h"
 
 // Hardcoded values of GPT table which we make.
@@ -87,7 +88,7 @@ static struct {
  * if there is no free inodes or the file does not exists.
  *
  * Flags must correspond to the CrowFS flags.
- * 
+ *
  * If relative_to is NULL, then open works relative to the root.
  */
 struct fs_inode *fs_open(const char *path, const struct fs_inode *relative_to,
@@ -147,6 +148,7 @@ struct fs_inode *fs_open(const char *path, const struct fs_inode *relative_to,
       break;
     case CROWFS_ENTITY_FOLDER:
       inode->type = INODE_DIRECTORY;
+      inode->size = stat.size;
       break;
     default:
       panic("open: invalid dnode type");
@@ -253,6 +255,55 @@ int fs_mkdir(const char *directory, const struct fs_inode *relative_to) {
   if (result != CROWFS_OK)
     return -1;
   return 0;
+}
+
+/**
+ * Reads a directory to a dirent struct array.
+ * Returns the number of entries read or zero if we have reached end of
+ * the directory. If an error occurs, a negative number will be returned.
+ *
+ * Buffer must be the type of struct dirent and len is the size of the buffer.
+ */
+int fs_readdir(const struct fs_inode *inode, void *buffer, size_t len,
+               int offset) {
+  if (inode->type != INODE_DIRECTORY)
+    return -1; // not directory
+  // Read each entry
+  struct CrowFSStat stat;
+  int read_directories = 0;
+  while (1) {
+    int result = crowfs_read_dir(&main_filesystem, inode->dnode, &stat, offset);
+    if (result == CROWFS_ERR_LIMIT) // end of dir
+      break;
+    if (result != CROWFS_OK) // fuckup
+      return -2;
+    // What is the directory name size
+    size_t directory_name_length = strlen(stat.name);
+    // If the buffer cannot even hold the dirent, bail
+    if (sizeof(struct dirent) + directory_name_length >= len)
+      break;
+    // Copy the variables
+    struct dirent *d = buffer;
+    switch (stat.type) {
+    case CROWFS_ENTITY_FILE:
+      d->type = DT_FILE;
+      break;
+    case CROWFS_ENTITY_FOLDER:
+      d->type = DT_DIR;
+      break;
+    default:
+      panic("fs_readdir: invalid type");
+    }
+    d->creation_date = stat.creation_date;
+    d->size = stat.size;
+    strcpy(d->name, stat.name);
+    // Update variables for next iteration
+    offset++;
+    read_directories++;
+    len -= sizeof(struct dirent) + directory_name_length;
+    buffer += sizeof(struct dirent) + directory_name_length;
+  }
+  return read_directories;
 }
 
 /**
