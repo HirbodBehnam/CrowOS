@@ -45,6 +45,11 @@ struct cpu_local_data {
 
   // Current running process if any
   struct process *running_process;
+  // What was the last running process on this CPU.
+  // This is needed because we lazily load some states like FPU
+  // in memory if the running process is not equal to the last running
+  // process.
+  struct process *last_running_process;
 };
 
 /**

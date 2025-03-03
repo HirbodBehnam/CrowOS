@@ -1,7 +1,7 @@
 #include "include/file.h"
-#include "libc/usyscalls.h"
-#include "libc/string.h"
 #include "libc/stdio.h"
+#include "libc/string.h"
+#include "libc/usyscalls.h"
 
 static char format_dirent_type(uint8_t type) {
   switch (type) {
@@ -27,8 +27,8 @@ static void ls(const char *path) {
     const void *temp_buffer = buf;
     for (int i = 0; i < read_dirs; i++) {
       const struct dirent *d = temp_buffer;
-      printf("%u\t%lld\t%c\t%s\n", d->size, d->creation_date,
-             format_dirent_type(d->type), d->name);
+      printf("%c\t%u\t%lld\t%s\n", format_dirent_type(d->type), d->size,
+             d->creation_date, d->name);
       temp_buffer += sizeof(struct dirent) + strlen(d->name);
     }
   }

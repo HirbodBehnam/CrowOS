@@ -2,6 +2,7 @@
 #include "common/lib.h"
 #include "common/printf.h"
 #include "cpu/asm.h"
+#include "cpu/fpu.h"
 #include "cpu/smp.h"
 #include "device/rtc.h"
 #include "fs/fs.h"
@@ -263,6 +264,22 @@ void scheduler_switch_back(void) {
   context_switch(kernel_stackpointer, &proc->resume_stack_pointer);
 }
 
+static void load_additional_data_if_needed(struct process *old,
+                                           const struct process *new) {
+  // In this case, we dont need to do anything. Everything is stored
+  // in the CPU states.
+  if (new == old)
+    return;
+  // It is important to load the gs base in the kernel gs base
+  // in order for it to be swapped with swapgs and be stored in
+  // the main gs base.
+  wrmsr(MSR_KERNEL_GS_BASE, new->additional_data.gs_base);
+  // Save the FPU state of the old process and load the new one
+  if (old != NULL) // this might happen at first program
+    fpu_save((void *)old->additional_data.fpu_state);
+  fpu_load((const void *)new->additional_data.fpu_state);
+}
+
 /**
  * Scheduler the scheduler of the operating system.
  */
@@ -277,15 +294,13 @@ void scheduler(void) {
       switch (processes[i].state) {
       case RUNNABLE:
         processes[i].state = RUNNING; // which are runnable...
-        // and make them running and when found
+        // load program values...
+        load_additional_data_if_needed(cpu_local()->last_running_process, &processes[i]);
+        // and make them running and when found...
         cpu_local()->running_process = &processes[i];
+        cpu_local()->last_running_process = &processes[i];
         // switch to its memory space...
         install_pagetable(V2P(processes[i].pagetable));
-        // load program values...
-        // It is important to load the gs base in the kernel gs base
-        // in order for it to be swapped with swapgs and be stored in
-        // the main gs base.
-        wrmsr(MSR_KERNEL_GS_BASE, processes[i].additional_data.gs_base);
         // and run it...
         context_switch(processes[i].resume_stack_pointer, &kernel_stackpointer);
         cpu_local()->running_process = NULL;
@@ -305,6 +320,9 @@ void scheduler(void) {
         processes[i].pagetable = NULL;
         memset(&processes[i].additional_data, 0,
                sizeof(processes[i].additional_data));
+        // On rare occasions, this might happen
+        if (cpu_local()->last_running_process == &processes[i])
+          cpu_local()->last_running_process = NULL;
         break;
       default:
         break;

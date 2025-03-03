@@ -12,9 +12,9 @@ Writing an operating system for x86_64 for fun on top of [Limine](https://github
     - [x] Round robin scheduling
     - [x] Wait
     - [x] Shell
-    - [ ] Floating Point
-        - [ ] 80387
-        - [ ] SSE
+    - [x] Floating Point
+        - [x] 80387
+        - [x] SSE
         - [ ] AVX
     - [ ] Preemptive scheduling
 - [x] File System

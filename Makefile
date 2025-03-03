@@ -39,6 +39,7 @@ KOBJS=$K/init.o \
 	$K/common/lib.o \
 	$K/common/printf.o \
 	$K/common/spinlock.o \
+	$K/cpu/fpu.o \
 	$K/cpu/gdt.o \
 	$K/cpu/idt.o \
 	$K/cpu/isr.o \

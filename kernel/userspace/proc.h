@@ -38,6 +38,8 @@ struct process_context {
 struct process_data {
   // The GS segment base which we store in MSR
   uint64_t gs_base;
+  // FPU state loaded and saved with fxsave/fxrstor
+  __attribute__((aligned(16))) uint8_t fpu_state[512];
 };
 
 /**
