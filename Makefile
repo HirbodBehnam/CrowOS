@@ -57,6 +57,7 @@ KOBJS=$K/init.o \
 	$K/fs/fs.o \
 	$K/fs/syscall.o \
 	$K/mem/mem.o \
+	$K/mem/pagecache.o \
 	$K/mem/vmm.o \
 	$K/userspace/exec.o \
 	$K/userspace/ring3.o \
@@ -133,7 +134,7 @@ boot/disk.img: $K/kernel boot/limine.conf boot/BOOTX64.EFI $F/crowfs $(UPROGS)
 # Emulation
 QEMU=qemu-system-x86_64
 # Do not add KVM here or you are unable to debug the OS
-QEMUOPT = -M q35 -smp 1 -m 128M -bios /usr/share/ovmf/OVMF.fd
+QEMUOPT = -M q35 -smp 4 -m 128M -bios /usr/share/ovmf/OVMF.fd
 QEMUOPT += -serial mon:stdio
 QEMUOPT += -monitor telnet:127.0.0.1:38592,server,nowait
 QEMUOPT += -drive file=boot/disk.img,if=none,id=nvm,format=raw -device nvme,serial=deadbeef,drive=nvm
