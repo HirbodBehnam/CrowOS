@@ -88,6 +88,23 @@ void *kalloc(void) {
 }
 
 /**
+ * Allocate one page for page cache. Returns the virtual address of this page.
+ * Will return NULL if we are out of space.
+ */
+void *kalloc_for_page_cache(void) {
+  spinlock_lock(&freepages_lock);
+  void *page = NULL;
+  if (freepages != NULL) { // OOM check
+    // Allocate one page
+    page = freepages;
+    freepages = freepages->next;
+    memset(page, 2, PAGE_SIZE);
+  }
+  spinlock_unlock(&freepages_lock);
+  return page;
+}
+
+/**
  * Same as kalloc but writes all zero to the page
  */
 void *kcalloc(void) {

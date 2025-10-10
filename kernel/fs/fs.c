@@ -118,7 +118,7 @@ struct fs_inode *fs_open(const char *path, const struct fs_inode *relative_to,
       // We found the inode!
       inode = &fs_inode_list.inodes[i];
       // Note for myself: I'm not sure about this. The whole goddamn
-      // file system is racy and buggy as fuck. If we se the parent
+      // file system is racy and buggy as fuck. If we set the parent
       // each time we move this inode, I think we won't have an issue
       // in regard of inode->parent_dnode. So I don't think we need
       // to set the inode->parent_dnode as parent.

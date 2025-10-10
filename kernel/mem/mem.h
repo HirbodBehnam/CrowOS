@@ -37,5 +37,6 @@ void init_mem(uint64_t hhdm_offset,
               const struct limine_memmap_response *memory_map);
 void kfree(void *page);
 void *kalloc(void);
+void *kalloc_for_page_cache(void);
 void *kcalloc(void);
 #endif
