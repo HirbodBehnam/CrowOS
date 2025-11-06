@@ -1,5 +1,6 @@
 #include "pagecache.h"
 #include "common/lib.h"
+#include "common/printf.h"
 #include "common/spinlock.h"
 #include "device/nvme.h"
 #include "mem.h"
@@ -51,6 +52,7 @@ struct pagecache_entry {
   struct spinlock lock;
   // Which block of disk is this cache for
   uint32_t disk_block;
+  // TODO: we can later on convert this to bit arithmetics
   // Is this cache dirty?
   bool dirty;
   // True if this entry is valid, otherwise false
@@ -85,18 +87,68 @@ static struct spinlock pagecache_entries_lock;
 
 // Which entry should be evicted next?
 static struct {
-  struct pagecache_entries *entry_frame;
+  struct pagecache_entries *entry_frames;
   int entry_index;
 } next_eviction_victim;
 
 /**
+ * Just read a single block to a buffer. No fuss or anything.
+ */
+static void pagecache_nvme_read(uint32_t block_index, char *data) {
+  nvme_read(block_index, PAGE_SIZE / nvme_block_size(), data);
+}
+
+/**
+ * Just write a single block from a buffer to disk. No fuss or anything.
+ */
+static void pagecache_nvme_write(uint32_t block_index, const char *data) {
+  nvme_write(block_index, PAGE_SIZE / nvme_block_size(), data);
+}
+
+/**
  * Steal a page from the page cache itself. This function must be called when
  * there is an active lock got on pagecache_entries_lock.
- * 
- * Will return NULL if the memory is full.
+ *
+ * Will return NULL if the memory is full. Returns the virtual address.
  */
 static void *pagecache_do_steal(void) {
-  
+  if (next_eviction_victim.entry_frames == NULL)
+    panic("next_eviction_victim.entry_frame is null");
+  // How many time we looped around?
+  int wrap_around_counter = 0;
+  // Do the clock algorithm
+  while (true) {
+    // Move the pointer one forward
+    if (next_eviction_victim.entry_index == PAGECACHE_ENTRY_COUNT - 1) {
+      next_eviction_victim.entry_index = 0;
+      next_eviction_victim.entry_frames =
+          next_eviction_victim.entry_frames->next_entries;
+      if (next_eviction_victim.entry_frames == NULL) {
+        next_eviction_victim.entry_frames = &first_pagecache_entries;
+        // Wrap other way around
+        wrap_around_counter++;
+        if (wrap_around_counter > 2) {
+          // No free pages. We have given each page a second change at least one
+          return NULL;
+        }
+      }
+    } else {
+      next_eviction_victim.entry_frames++;
+    }
+    struct pagecache_entry *current_frame =
+        &next_eviction_victim.entry_frames
+             ->entries[next_eviction_victim.entry_index];
+    // Is this even valid?
+    if (!current_frame->valid)
+      continue;
+    // Did this page had its second chance?
+    if (current_frame->second_chance) { // found one!
+      current_frame->valid = false;
+      // TODO: write back data
+      return current_frame->cache;
+    }
+    current_frame->second_chance = true;
+  }
 }
 
 /**
@@ -148,9 +200,9 @@ get_pagecache_entry_of_index(uint32_t block_index, bool populate) {
   if (free_entry == NULL) {
     // We have to allocate a new free entry.
     struct pagecache_entries *new_entries = kalloc_for_page_cache();
-    memset(new_entries, 0, sizeof(struct pagecache_entries));
     if (new_entries == NULL) // no free memory
       goto done;
+    memset(new_entries, 0, sizeof(struct pagecache_entries));
     // Put it in the list
     current_entries = &first_pagecache_entries;
     while (current_entries->next_entries != NULL)
@@ -164,10 +216,14 @@ get_pagecache_entry_of_index(uint32_t block_index, bool populate) {
   free_entry->cache = kalloc_for_page_cache();
   if (free_entry->cache == NULL) {
     // Out of memory :(
-    goto done;
+    // Can we repurpose of our pages?
+    free_entry->cache = pagecache_do_steal();
+    if (free_entry->cache) // Well, shit
+      goto done;
   }
   free_entry->valid = true;
   free_entry->disk_block = block_index;
+  free_entry->second_chance = false;
   spinlock_lock(&free_entry->lock);
   entry = free_entry;
   should_populate = populate;
@@ -178,7 +234,7 @@ done:
 
   // Read from the disk if needed
   if (should_populate)
-    nvme_read(block_index, PAGE_SIZE / nvme_block_size(), entry->cache);
+    pagecache_nvme_read(block_index, entry->cache);
 
   return entry;
 }
@@ -187,8 +243,44 @@ done:
  * Either read a block from the disk and store it in cache or read the
  * block from the cache which is already in the memory.
  */
-void pagecache_read(uint32_t block_index, char *data) {}
+void pagecache_read(uint32_t block_index, char *data) {
+  struct pagecache_entry *entry =
+      get_pagecache_entry_of_index(block_index, true);
+  if (entry == NULL) {
+    // Just read the page from the disk. No passthrough
+    pagecache_nvme_read(block_index, data);
+    return;
+  }
+  entry->second_chance = false;
+  // Copy back data. No zero copy and I see why Linux allows zero copy with direct IO only :(
+  memcpy(data, entry->cache, PAGE_SIZE);
+}
 
-void pagecache_write(uint32_t block_index, const char *data) {}
+/**
+ * Either write a block to the disk or get a page cache entry and store it there
+ * to be written back later on.
+ */
+void pagecache_write(uint32_t block_index, const char *data) {
+  struct pagecache_entry *entry =
+      get_pagecache_entry_of_index(block_index, false);
+  if (entry == NULL) {
+    // Just write the page to the disk. No passthrough
+    pagecache_nvme_write(block_index, data);
+    return;
+  }
+  entry->second_chance = false;
+  entry->dirty = true;
+  // Copy data to cache
+  memcpy(entry->cache, data, PAGE_SIZE);
+}
 
-void *pagecache_steal(void) {}
+/**
+ * Steal a page cache memory frame. This function does not steal from the entries list.
+ * It only steals from the memory of frames.
+ */
+void *pagecache_steal(void) {
+  spinlock_lock(&pagecache_entries_lock);
+  void *result = pagecache_do_steal();
+  spinlock_unlock(&pagecache_entries_lock);
+  return result;
+}

@@ -2,6 +2,7 @@
 #include "common/lib.h"
 #include "common/spinlock.h"
 #include "common/printf.h"
+#include "pagecache.h"
 
 /**
  * The HHDM offset which current Limine works with
@@ -71,23 +72,6 @@ void kfree(void *page) {
 }
 
 /**
- * Allocate one page for kernel. Returns the virtual address of this page.
- * Will return NULL if we are out of space.
- */
-void *kalloc(void) {
-  spinlock_lock(&freepages_lock);
-  void *page = NULL;
-  if (freepages != NULL) { // OOM check
-    // Allocate one page
-    page = freepages;
-    freepages = freepages->next;
-    memset(page, 2, PAGE_SIZE);
-  }
-  spinlock_unlock(&freepages_lock);
-  return page;
-}
-
-/**
  * Allocate one page for page cache. Returns the virtual address of this page.
  * Will return NULL if we are out of space.
  */
@@ -98,9 +82,25 @@ void *kalloc_for_page_cache(void) {
     // Allocate one page
     page = freepages;
     freepages = freepages->next;
-    memset(page, 2, PAGE_SIZE);
+    // We do not need to "overwrite" the page because it will be
+    // overwritten just after.
   }
   spinlock_unlock(&freepages_lock);
+  return page;
+}
+
+/**
+ * Allocate one page for kernel. Returns the virtual address of this page.
+ * Will return NULL if we are out of space.
+ */
+void *kalloc(void) {
+  void *page = kalloc_for_page_cache();
+  // Try to allocate a page from the page cache if needed
+  if (page == NULL)
+    page = pagecache_steal();
+  // Safely: Override with gibberish to see these pattern in the gdb
+  if (page != NULL)
+    memset(page, 2, PAGE_SIZE);
   return page;
 }
 
@@ -108,14 +108,8 @@ void *kalloc_for_page_cache(void) {
  * Same as kalloc but writes all zero to the page
  */
 void *kcalloc(void) {
-  spinlock_lock(&freepages_lock);
-  void *page = NULL;
-  if (freepages != NULL) { // OOM check
-    // Allocate one page
-    page = freepages;
-    freepages = freepages->next;
+  void *page = kalloc();
+  if (page != NULL)
     memset(page, 0, PAGE_SIZE);
-  }
-  spinlock_unlock(&freepages_lock);
   return page;
 }
