@@ -146,7 +146,10 @@ static void *pagecache_do_steal(void) {
     // Did this page had its second chance?
     if (current_frame->second_chance) { // found one!
       current_frame->valid = false;
-      // TODO: write back data
+      // Write back data
+      // TODO: This can be probably handled better in terms of the locks
+      pagecache_nvme_write(current_frame->disk_block, current_frame->cache);
+      // Done
       return current_frame->cache;
     }
     current_frame->second_chance = true;
