@@ -135,6 +135,8 @@ static void *pagecache_do_steal(void) {
     } else {
       next_eviction_victim.entry_frames++;
     }
+    // We don't need locks here. We have a lock on pagecache_entries_lock
+    // which is a superlock
     struct pagecache_entry *current_frame =
         &next_eviction_victim.entry_frames
              ->entries[next_eviction_victim.entry_index];
@@ -252,8 +254,11 @@ void pagecache_read(uint32_t block_index, char *data) {
     return;
   }
   entry->second_chance = false;
-  // Copy back data. No zero copy and I see why Linux allows zero copy with direct IO only :(
+  // Copy back data. No zero copy and I see why Linux allows zero copy with
+  // direct IO only :(
   memcpy(data, entry->cache, PAGE_SIZE);
+  // We done with this entry and unlock it
+  spinlock_unlock(&entry->lock);
 }
 
 /**
@@ -272,11 +277,13 @@ void pagecache_write(uint32_t block_index, const char *data) {
   entry->dirty = true;
   // Copy data to cache
   memcpy(entry->cache, data, PAGE_SIZE);
+  // We done with this entry and unlock it
+  spinlock_unlock(&entry->lock);
 }
 
 /**
- * Steal a page cache memory frame. This function does not steal from the entries list.
- * It only steals from the memory of frames.
+ * Steal a page cache memory frame. This function does not steal from the
+ * entries list. It only steals from the memory of frames.
  */
 void *pagecache_steal(void) {
   spinlock_lock(&pagecache_entries_lock);

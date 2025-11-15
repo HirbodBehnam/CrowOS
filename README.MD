@@ -29,6 +29,7 @@ Writing an operating system for x86_64 for fun on top of [Limine](https://github
     - [x] File removal
     - [ ] Rename
     - [x] Relative paths
+    - [x] Page cache
 - [x] CMOS RTC
 - [x] VGA/Framebuffer
     - [x] BMP viewer

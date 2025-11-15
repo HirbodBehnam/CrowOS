@@ -7,6 +7,7 @@
 #include "device/rtc.h"
 #include "include/file.h"
 #include "mem/mem.h"
+#include "mem/pagecache.h"
 
 // Hardcoded values of GPT table which we make.
 // TODO: Parse the GPT table and find these values.
@@ -32,9 +33,10 @@ static void free_mem_block(union CrowFSBlock *block) { kfree(block); }
  * This function always succeeds because the NVMe always does (for now!).
  */
 static int write_block(uint32_t block_index, const union CrowFSBlock *block) {
-  nvme_write(PARTITION_OFFSET + (uint64_t)block_index *
-                                    (CROWFS_BLOCK_SIZE / nvme_block_size()),
-             CROWFS_BLOCK_SIZE / nvme_block_size(), (const char *)block);
+  pagecache_write(PARTITION_OFFSET +
+                      (uint64_t)block_index *
+                          (CROWFS_BLOCK_SIZE / nvme_block_size()),
+                  (const char *)block);
   return 0;
 }
 
@@ -42,9 +44,9 @@ static int write_block(uint32_t block_index, const union CrowFSBlock *block) {
  * Works mostly like write_block function but reads a block. Always succeeds.
  */
 static int read_block(uint32_t block_index, union CrowFSBlock *block) {
-  nvme_read(PARTITION_OFFSET +
-                (uint64_t)block_index * (CROWFS_BLOCK_SIZE / nvme_block_size()),
-            CROWFS_BLOCK_SIZE / nvme_block_size(), (char *)block);
+  pagecache_read(PARTITION_OFFSET + (uint64_t)block_index *
+                                        (CROWFS_BLOCK_SIZE / nvme_block_size()),
+                 (char *)block);
   return 0;
 }
 
